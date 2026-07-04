@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>netstandard2.1</TargetFramework>
+		<AssemblyName>LuaInWhiteKnuckle</AssemblyName>
+		<Product>LuaInWhiteKnuckle</Product>
+		<Version>0.1.0</Version>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<LangVersion>latest</LangVersion>
+		<RestoreAdditionalProjectSources>
+			https://api.nuget.org/v3/index.json;
+			https://nuget.bepinex.dev/v3/index.json;
+			https://nuget.samboy.dev/v3/index.json
+		</RestoreAdditionalProjectSources>
+		<RootNamespace>LuaInWhiteKnuckle</RootNamespace>
+	</PropertyGroup>
+
+	<ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
+		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
+	</ItemGroup>
+
+	<PropertyGroup>
+		<GamePath>D:\GAME\Steam\steamapps\common\White Knuckle</GamePath>
+		<ManagedPath>$(GamePath)\White Knuckle_Data\Managed</ManagedPath>
+		<BepInExPath>$(GamePath)\BepInEx\core</BepInExPath>
+	</PropertyGroup>
+
+	<Target Name="CopyToGame" AfterTargets="Build">
+		<!-- 1. 复制编译生成的 .dll -->
+		<ItemGroup>
+			<OutputDlls Include="$(OutputPath)**\*.dll" />
+		</ItemGroup>
+		<Copy SourceFiles="@(OutputDlls)" DestinationFolder="$(GamePath)\BepInEx\plugins\LuaInWK\" SkipUnchangedFiles="true" />
+
+		<!-- 2. 复制 LuaScript 文件夹 -->
+		<ItemGroup>
+			<LuaScriptFiles Include="$(ProjectDir)LuaScript\**\*.*" />
+		</ItemGroup>
+		<Copy SourceFiles="@(LuaScriptFiles)" DestinationFolder="$(GamePath)\BepInEx\plugins\LuaInWK\LuaScript\%(RecursiveDir)" SkipUnchangedFiles="true" />
+	</Target>
+
+
+	<ItemGroup>
+		<Reference Include="lib\MoonSharp.Interpreter.dll" Private="True" />
+		<Reference Include="$(ManagedPath)\Assembly-CSharp.dll" Private="False" />
+		<Reference Include="$(ManagedPath)\Unity*.dll" Private="False" />
+		<Reference Include="$(ManagedPath)\ALINE.dll" Private="False" />
+		<Reference Include="$(ManagedPath)\Facepunch.Steamworks.Win64.dll" Private="False" />
+		<Reference Include="$(ManagedPath)\Newtonsoft.Json.dll" Private="False" />
+		<Reference Include="$(ManagedPath)\DOTween.dll" Private="False" />
+
+		<Reference Include="$(BepInExPath)\*.dll" Exclude="$(BepInExPath)\0Harmony20.dll" Private="False" />
+	</ItemGroup>
+
+
+	<ItemGroup>
+	  <None Include="..\..\..\..\GAME\Steam\steamapps\common\White Knuckle\BepInEx\plugins\LuaInWK\LuaScript\infiniteItem.lua" Link="LuaScript\infiniteItem.lua" />
+	</ItemGroup>
+</Project>
