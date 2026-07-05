@@ -9,6 +9,8 @@ end
 
 Game.Events.Off("OnInventoryRemove","infinite_item")
 
+Inventory.AddItem(item_prefab, count) 
+
 Game.Events.On("OnInventoryRemove","infinite_item", 
 	function(item_name, delta, count) 
 		if item_name == item_prefab and count > item_number then 

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Unity.Entities.UniversalDelegates;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace LuaInWhiteKnuckle.Core;
@@ -24,14 +25,15 @@ public class SafeLuaSandbox {
 		// 注册类型白名单
 		UserData.RegisterType<ModRootApi>();
 		UserData.RegisterType<ModEventBus>();
+		UserData.RegisterType<Vector2>();
+		UserData.RegisterType<Vector3>();
+		UserData.RegisterType<Quaternion>();
+		UserData.RegisterType<Color>();
 		// 实例化当前沙箱生命周期内的 API 根节点
 		Api = new ModRootApi(_env);
 		// 把 Game 全局变量和 C# 实例绑定
-		_env.Globals["Game"] = Api;
-		PluginRegistry.Build(_env);
 		_env.Globals["print"] = (Action<DynValue>)(v => { Plugin.Logger.LogInfo($"[LuaInWK] {v.ToPrintString()}"); });
 		_env.Globals["com_print"] = (Action<DynValue>)(v => { CommandConsole.Log($"[Lua] {v.ToPrintString()}"); });
-
 	}
 
 	/// <summary>

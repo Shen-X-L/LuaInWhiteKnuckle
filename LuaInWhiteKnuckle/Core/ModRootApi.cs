@@ -1,4 +1,5 @@
-﻿using MoonSharp.Interpreter;
+﻿using LuaInWhiteKnuckle.Api;
+using MoonSharp.Interpreter;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -34,8 +35,9 @@ public static class PluginRegistry {
 		}
 
 		foreach (Type type in types) {
-			var attr = type.GetCustomAttribute<LuaApiAttribute>();
-			if (attr == null) continue;
+			var apiAttr = type.GetCustomAttribute<LuaApiAttribute>();
+			var moonAttr = type.GetCustomAttribute<MoonSharpUserDataAttribute>();
+			if (apiAttr == null&& moonAttr == null) continue;
 			if (type.IsAbstract) continue;
 			if (type.IsInterface) continue;
 			if (type.GetConstructor(Type.EmptyTypes) == null) {
@@ -43,10 +45,10 @@ public static class PluginRegistry {
 				continue;
 			}
 			UserData.RegisterType(type);
-
-			object instance = Activator.CreateInstance(type);
-
-			_apis[attr.Name] = instance;
+			if (apiAttr != null) {
+				object instance = Activator.CreateInstance(type);
+				_apis[apiAttr.Name] = instance;
+			}
 		}
 	}
 
@@ -89,8 +91,12 @@ public static class PluginRegistry {
 public class ModRootApi {
 	// 注入事件总线
 	public ModEventBus Events { get; } = new ModEventBus();
+	public ModHookBus Hooks { get; } = new ModHookBus();
 
-	public ModRootApi(Script script) {}
+	public ModRootApi(Script script) {
+		script.Globals["Game"] = this;
+		PluginRegistry.Build(script);
+	}
 }
 
 [MoonSharpUserData]
@@ -122,6 +128,7 @@ public class ModEventBus {
 			Callback = callback,
 			DebugName = listenerId
 		});
+		Plugin.gameWatcherManager.Enable(eventName, true);
 	}
 
 	/// <summary>
@@ -143,7 +150,7 @@ public class ModEventBus {
 				// 没有监听器了，顺便删除事件
 				if (listeners.Count == 0)
 					_listeners.Remove(eventName);
-
+				Plugin.gameWatcherManager.Enable(eventName, false);
 				return true;
 			}
 		}
@@ -152,28 +159,11 @@ public class ModEventBus {
 	}
 
 	/// <summary>
-	/// 获取订阅指定事件的所有监听器
-	/// </summary>
-	/// <param name="eventName"></param>
-	/// <param name="listeners"></param>
-	/// <returns></returns>
-	public bool TryGetListeners(string eventName, out List<string> listeners) {
-		if (!_listeners.TryGetValue(eventName, out var listenerList)) {
-			listeners = null;
-			return false;
-		}
-		listeners = new List<string>(listenerList.Count);
-		foreach (var listener in listenerList) {
-			listeners.Add(listener.DebugName);
-		}
-		return true;
-	}
-
-	/// <summary>
 	/// 提供给 C# 游戏钩子(Harmony Patch等)调用的触发接口
 	/// </summary>
 	/// <param name="eventName">事件名</param>
 	/// <param name="args">传递给 Lua 回调的参数</param>
+	[MoonSharpHidden]
 	public void Trigger(string eventName, params object[] args) {
 		if (!_listeners.TryGetValue(eventName, out var listeners))
 			return;
@@ -194,7 +184,8 @@ public class ModEventBus {
 			_listeners.Remove(eventName);
 	}
 
-	public static void TriggerLuaEvent(string eventName, params object[] args) {
+	[MoonSharpHidden]
+	public static void TriggerEvent(string eventName, params object[] args) {
 		if (Plugin.safeLuaSandbox != null && Plugin.safeLuaSandbox.Api != null) {
 			Plugin.safeLuaSandbox.Api.Events.Trigger(eventName, args);
 		}
@@ -216,3 +207,60 @@ public class ModEventBus {
 	}
 }
 
+[MoonSharpUserData]
+public class ModHookBus {
+	internal class LuaHook {
+		public string Id;
+		public Closure Callback;
+	}
+	private Dictionary<string, LuaHook> _hooks = new ();
+
+	public void Register(string hookName,string debugName ,Closure callback) {
+		if (callback == null) return;
+		_hooks[hookName] = new LuaHook { Id = debugName, Callback = callback };
+	}
+
+	public void Unregister(string hookName) {
+		_hooks.Remove(hookName);
+	}
+
+	[MoonSharpHidden]
+	public bool Contains(string hookName) {
+		return _hooks.ContainsKey(hookName);
+	}
+
+	/// <summary>
+	/// 提供给 C# 游戏钩子(Harmony Patch等)调用的触发接口
+	/// </summary>
+	/// <param name="hookName">钩子名</param>
+	/// <param name="args">传递给 Lua 回调的参数</param>
+	[MoonSharpHidden]
+	public T Invoke<T>(string hookName, params object[] args) {
+		if (!_hooks.TryGetValue(hookName, out var hook))
+			return default;
+
+		// 调用 TaskManager 的同步安全执行方法，而不是直接 Call
+		DynValue result = Plugin.luaTaskManager.InvokeSync(hook.Callback, hook.Id, args);
+
+		// 如果执行失败、被熔断，或者 Lua 显式返回了 nil，则返回默认值
+		if (result == null || result.IsNil()) {
+			return default;
+		}
+
+		try {
+			// 将 Lua 的返回值安全地转换为 C# 期望的类型
+			return result.ToObject<T>();
+		} catch (Exception ex) {
+			Plugin.Logger.LogError($"[Hook返回值转换错误] Hook '{hook.Id}' 返回了意外的类型，无法转换为 {typeof(T).Name}: {ex.Message}");
+			return default;
+		}
+	}
+
+	[MoonSharpHidden]
+	public static T InvokeHook<T>(string eventName, params object[] args) {
+		if (Plugin.safeLuaSandbox != null && Plugin.safeLuaSandbox.Api != null) {
+			return Plugin.safeLuaSandbox.Api.Hooks.Invoke<T>(eventName, args);
+		}
+		return default;
+	}
+}

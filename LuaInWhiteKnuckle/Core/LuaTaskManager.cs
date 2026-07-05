@@ -84,6 +84,12 @@ public class LuaTaskManager : MonoBehaviour {
 		}
 	}
 
+	/// <summary>
+	/// 执行Lua的回调函数
+	/// </summary>
+	/// <param name="callback"></param>
+	/// <param name="debugName"></param>
+	/// <param name="args"></param>
 	public void Execute(Closure callback, string debugName, params object[] args) {
 		if (callback == null) return;
 		if (callback.OwnerScript == null) {
@@ -93,6 +99,44 @@ public class LuaTaskManager : MonoBehaviour {
 		Coroutine coroutine = callback.OwnerScript.CreateCoroutine(callback).Coroutine;
 
 		AddTask(coroutine, debugName, args);
+	}
+
+	/// <summary>
+	/// 同步执行 Lua Closure 并立即返回结果。专供 Hook 拦截使用。
+	/// 带有严格的防死循环保护，一旦触发死循环将被强制中断。
+	/// </summary>
+	public DynValue InvokeSync(Closure callback, string debugName, params object[] args) {
+		if (callback == null || callback.OwnerScript == null) {
+			Plugin.Logger.LogError($"[Hook执行错误] 无法执行 Hook {debugName}: 回调为空");
+			return DynValue.Nil;
+		}
+
+		try {
+			// 将回调包装为一个独立的协程，仅仅是为了施加指令数限制
+			Coroutine coroutine = callback.OwnerScript.CreateCoroutine(callback).Coroutine;
+
+			coroutine.AutoYieldCounter = MAX_INSTRUCTIONS_PER_FRAME;
+
+			// 立即同步恢复执行
+			DynValue result = coroutine.Resume(args);
+
+			// 检查是否因为超出了指令限制而被强制挂起
+			// (注意：Hook 中不应该使用主动的 coroutine.yield，因为我们需要同步结果)
+			if (result.Type == DataType.YieldRequest || coroutine.State == CoroutineState.Suspended) {
+				Plugin.Logger.LogError($"[Hook安全拦截] Hook '{debugName}' 试图执行异步挂起或存在死循环指令超限，已被强制熔断！");
+				// 视情况可以在这里调用 safeLuaSandbox.InitSandbox() 重置环境
+				return DynValue.Nil;
+			}
+
+			return result;
+
+		} catch (ScriptRuntimeException ex) {
+			Plugin.Logger.LogError($"[Hook运行时错误] {debugName}: {ex.DecoratedMessage}");
+			return DynValue.Nil;
+		} catch (System.Exception ex) {
+			Plugin.Logger.LogError($"[Hook系统错误] 驱动 {debugName} 时发生异常: {ex.Message}");
+			return DynValue.Nil;
+		}
 	}
 
 	private void Update() {
@@ -132,7 +176,7 @@ public class LuaTaskManager : MonoBehaviour {
 
 			// 超过执行次数的协程暂停
 			if (result.Type == DataType.YieldRequest) {
-				Plugin.Logger.LogError($"[沙箱安全击杀] 脚本 {task.DebugName} 指令超限或疑似死循环！");
+				Plugin.Logger.LogError($"[沙箱控制] 脚本 {task.DebugName} 指令超限或疑似死循环！");
 
 				// 视情况决定是否要调用 Plugin.safeLuaSandbox.InitSandbox() 重置全局环境
 				_deadList.Add(task);
