@@ -260,6 +260,21 @@ public class InventoryApi {
 		}
 	}
 
+	/// <summary>
+	/// 口袋对应小袋
+	/// </summary>
+	public Pouch PocketPouch(int pocketIndex) {
+		if (Inventory.instance == null) {
+			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance is null");
+			return null;
+		}
+		if (pocketIndex < 0 || pocketIndex >= Inventory.instance.pockets.Count) {
+			Plugin.LogError($"[LuaInWK] InventoryApi: Invalid pocket index {pocketIndex}");
+			return null;
+		}
+		return Inventory.instance.pockets[pocketIndex].pouch;
+	}
+
 	#endregion
 
 	#region[小袋物品API]
