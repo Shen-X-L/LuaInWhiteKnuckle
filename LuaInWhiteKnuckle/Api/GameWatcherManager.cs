@@ -10,6 +10,10 @@ public class GameWatcherManager : MonoBehaviour {
 	private readonly List<IWatcher> _watchers = new();
 	private readonly Dictionary<string, List<IWatcher>> _eventMap = new();
 	private void Awake() {
+
+	}
+
+	private void Start() {
 		Plugin.gameWatcherManager.Register(new InventoryMonitor());
 		Plugin.gameWatcherManager.Register(new HandItemMonitor());
 	}
@@ -19,7 +23,7 @@ public class GameWatcherManager : MonoBehaviour {
 		for (int i = 0; i < _watchers.Count; i++) {
 			var watcher = _watchers[i];
 			if (!watcher.NeedEnable) continue;
-			Plugin.LogDebug("GameWatcherManager.Update B");
+			Plugin.LogTest("GameWatcherManager.Update B");
 			if (now < watcher.NextUpdateTime) continue;
 			watcher.NextUpdateTime = now + watcher.Interval;
 

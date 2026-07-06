@@ -88,18 +88,22 @@ public class Plugin : BaseUnityPlugin {
 		luaFileManager?.Dispose();
 	}
 
-	public static void LogInfo(string log) {
+	public static void LogInfo(string log = "") {
 		Logger.LogInfo(log);
 	}
 
-	public static void LogWarning(string log) {
+	public static void LogWarning(string log = "") {
 		Logger.LogWarning(log);
 	}
-	public static void LogError(string log) {
+	public static void LogError(string log = "") {
 		Logger.LogError(log);
 	}
 
-	public static void LogDebug(string log) {
-		Logger.LogDebug("[LuaInWK]" + log);
+	public static void LogDebug(string log = "") {
+		Logger.LogDebug("[Lua Debug]" + log);
+	}
+
+	public static void LogTest(string log = "") {
+		Logger.LogWarning("[Lua Test] " + log);
 	}
 }

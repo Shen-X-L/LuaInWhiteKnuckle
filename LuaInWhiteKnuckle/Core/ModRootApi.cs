@@ -1,7 +1,11 @@
 ﻿using LuaInWhiteKnuckle.Api;
+using LuaInWhiteKnuckle.Collections;
 using MoonSharp.Interpreter;
+using MoonSharp.Interpreter.Interop;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 
 namespace LuaInWhiteKnuckle.Core;
@@ -10,6 +14,9 @@ public static class PluginRegistry {
 	// API注册表
 	private static readonly Dictionary<string, object> _apis = new();
 	private static readonly HashSet<Assembly> _assemblies = new();
+	/// <summary>
+	/// 扫描当前程序集
+	/// </summary>
 	public static void Initialize() {
 		RegisterAssembly(typeof(PluginRegistry).Assembly);
 	}
@@ -36,18 +43,28 @@ public static class PluginRegistry {
 
 		foreach (Type type in types) {
 			var apiAttr = type.GetCustomAttribute<LuaApiAttribute>();
+			var dataAttr = type.GetCustomAttribute<LuaDataAttribute>();
 			var moonAttr = type.GetCustomAttribute<MoonSharpUserDataAttribute>();
-			if (apiAttr == null&& moonAttr == null) continue;
+			if (apiAttr == null && moonAttr == null && dataAttr == null) continue;
 			if (type.IsAbstract) continue;
 			if (type.IsInterface) continue;
-			if (type.GetConstructor(Type.EmptyTypes) == null) {
-				Plugin.LogError($"[LuaInWK] {type.Name} 缺少无参构造函数");
-				continue;
-			}
 			UserData.RegisterType(type);
 			if (apiAttr != null) {
+				if (type.GetConstructor(Type.EmptyTypes) == null) {
+					Plugin.LogError($"[LuaInWK] {type.Name} 缺少无参构造函数");
+					continue;
+				}
 				object instance = Activator.CreateInstance(type);
 				_apis[apiAttr.Name] = instance;
+				Plugin.LogInfo($"[LuaInWK] 注册 {type} 到API");
+			}
+			if (dataAttr != null) {
+				if (type.GetConstructor(new Type[] { dataAttr.Type }) == null) {
+					Plugin.LogError($"[LuaInWK] {type.Name} 缺少转换构造函数");
+					continue;
+				}
+				RegisterProxy(type, dataAttr.Type);
+				Plugin.LogInfo($"[LuaInWK] 注册 {dataAttr.Type} 到 {type} 的自动转换");
 			}
 		}
 	}
@@ -85,6 +102,45 @@ public static class PluginRegistry {
 		foreach (var kv in _apis)
 			RegisterPath(script, kv.Key, kv.Value);
 	}
+
+	// 注册代理类型到 MoonSharp 的 UserData 系统中
+	private static void RegisterProxy(Type proxyType, Type targetType) {
+		// 获取构造函数
+		ConstructorInfo ctor = proxyType.GetConstructor(new[] { targetType });
+		// 构建表达式树的参数
+		ParameterExpression obj = Expression.Parameter(typeof(object), "obj");
+		// 构建表达式树的主体,New 调用构造函数,Convert 调用类型转换
+		NewExpression body = Expression.New(ctor, Expression.Convert(obj, targetType));
+		UnaryExpression cast = Expression.Convert(body, typeof(object));
+		// 表达式树编译成Func<object, object>
+		Func<object, object> factory =
+			Expression.Lambda<Func<object, object>>(cast,obj)
+				.Compile();
+		// 生成代理工厂
+		UserData.RegisterProxyType(new DynamicProxyFactory(proxyType,targetType,factory));
+	}
+
+	//代理工厂类
+	public class DynamicProxyFactory : IProxyFactory {
+		public Type ProxyType { get; }
+
+		public Type TargetType { get; }
+
+		private readonly Func<object, object> _factory;
+
+		public DynamicProxyFactory(
+			Type proxyType,
+			Type targetType,
+			Func<object, object> factory) {
+			ProxyType = proxyType;
+			TargetType = targetType;
+			_factory = factory;
+		}
+
+		public object CreateProxyObject(object obj) {
+			return _factory(obj);
+		}
+	}
 }
 
 [MoonSharpUserData]
@@ -119,7 +175,7 @@ public class ModEventBus {
 	/// <param name="listenerId"></param>
 	/// <param name="callback"></param>
 	public void On(string eventName, string listenerId, Closure callback) {
-		Plugin.LogDebug("ModEventBus.On");
+		Plugin.LogTest("ModEventBus.On");
 		if (callback == null) return;
 		if (!_listeners.ContainsKey(eventName)) {
 			_listeners[eventName] = new List<LuaEventListener>();

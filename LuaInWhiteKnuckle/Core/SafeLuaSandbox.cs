@@ -1,5 +1,8 @@
-﻿using MoonSharp.Interpreter;
+﻿using LuaInWhiteKnuckle.Api;
+using LuaInWhiteKnuckle.Collections;
+using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Interop;
+using Steamworks.Ugc;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -29,11 +32,30 @@ public class SafeLuaSandbox {
 		UserData.RegisterType<Vector3>();
 		UserData.RegisterType<Quaternion>();
 		UserData.RegisterType<Color>();
+		UserData.RegisterProxyType<LuaList<string>, List<string>>(list => new LuaList<string>(list));
+		UserData.RegisterProxyType<LuaList<Item>, List<Item>>(list => new LuaList<Item>(list));
+
 		// 实例化当前沙箱生命周期内的 API 根节点
 		Api = new ModRootApi(_env);
 		// 把 Game 全局变量和 C# 实例绑定
-		_env.Globals["print"] = (Action<DynValue>)(v => { Plugin.Logger.LogInfo($"[LuaInWK] {v.ToPrintString()}"); });
-		_env.Globals["com_print"] = (Action<DynValue>)(v => { CommandConsole.Log($"[Lua] {v.ToPrintString()}"); });
+		_env.Globals["print"] = new CallbackFunction((ctx, args) => {
+			StringBuilder sb = new();
+			sb.Append("[LuaInWK]");
+			for (int i = 0; i < args.Count; i++) {
+				sb.Append(args[i].ToPrintString());
+			}
+			Plugin.LogInfo(sb.ToString());
+			return DynValue.Nil;
+		});
+		_env.Globals["com_print"] = new CallbackFunction((ctx, args) => {
+			StringBuilder sb = new();
+			sb.Append("[Lua]");
+			for (int i = 0; i < args.Count; i++) {
+				sb.Append(args[i].ToPrintString());
+			}
+			CommandConsole.Log(sb.ToString());
+			return DynValue.Nil;
+		});
 	}
 
 	/// <summary>

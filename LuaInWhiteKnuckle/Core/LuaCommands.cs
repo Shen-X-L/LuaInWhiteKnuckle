@@ -11,7 +11,10 @@ public class LuaCommands {
 		CommandConsole.BuildCommand("luafile",ExecuteLuaFileCommand)
 			.AutocompleteCustom(autocomplete => { autocomplete.FromArray(Plugin.luaFileManager.LuaRelativePaths); });
 		CommandConsole.BuildCommand("luakill", KillLuaTaskCommand)
-		.AutocompleteCustom(autocomplete => { autocomplete.FromArray(Plugin.luaTaskManager.TasksName); });
+			.AutocompleteCustom(autocomplete => { autocomplete.FromArray(Plugin.luaTaskManager.TasksName); });
+		CommandConsole.BuildCommand("luatest", Program.Main)
+			.NotCheat()
+			.AutocompleteCustom(autocomplete => { autocomplete.FromArray(Program.TestSet); });
 	}
 
 	public static void ExecuteLuaCommand(string[] luaCode) {

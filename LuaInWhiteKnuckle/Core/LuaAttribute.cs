@@ -12,3 +12,12 @@ public sealed class LuaApiAttribute : Attribute {
 		Name = name;
 	}
 }
+
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+public sealed class LuaDataAttribute : Attribute {
+	public Type Type { get; }
+
+	public LuaDataAttribute(Type type) {
+		Type = type;
+	}
+}
