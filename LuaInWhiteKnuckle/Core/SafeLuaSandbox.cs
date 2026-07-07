@@ -9,6 +9,7 @@ using System.Text;
 using Unity.Entities.UniversalDelegates;
 using UnityEngine;
 using UnityEngine.UIElements;
+using static BuffContainer;
 
 namespace LuaInWhiteKnuckle.Core;
 
@@ -32,8 +33,6 @@ public class SafeLuaSandbox {
 		UserData.RegisterType<Vector3>();
 		UserData.RegisterType<Quaternion>();
 		UserData.RegisterType<Color>();
-		UserData.RegisterProxyType<LuaList<string>, List<string>>(list => new LuaList<string>(list));
-		UserData.RegisterProxyType<LuaList<Item>, List<Item>>(list => new LuaList<Item>(list));
 
 		// 实例化当前沙箱生命周期内的 API 根节点
 		Api = new ModRootApi(_env);

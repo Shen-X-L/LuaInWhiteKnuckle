@@ -7,15 +7,16 @@ using UnityEngine;
 namespace LuaInWhiteKnuckle.Api;
 
 public class GameWatcherManager : MonoBehaviour {
-	private readonly List<IWatcher> _watchers = new();
-	private readonly Dictionary<string, List<IWatcher>> _eventMap = new();
+	private static readonly List<IWatcher> _watchers = new();
+	private static readonly Dictionary<string, List<IWatcher>> _eventMap = new();
 	private void Awake() {
 
 	}
 
 	private void Start() {
-		Plugin.gameWatcherManager.Register(new InventoryMonitor());
-		Plugin.gameWatcherManager.Register(new HandItemMonitor());
+		GameWatcherManager.Register(new InventoryMonitor());
+		GameWatcherManager.Register(new HandItemMonitor());
+		GameWatcherManager.Register(new PocketItemMonitor());
 	}
 
 	private void Update() {
@@ -36,7 +37,7 @@ public class GameWatcherManager : MonoBehaviour {
 		_eventMap.Clear();
 	}
 
-	public void Register(IWatcher watcher) {
+	public static void Register(IWatcher watcher) {
 		if (watcher == null) return;
 
 		if (_watchers.Contains(watcher)) return;

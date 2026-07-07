@@ -1,8 +1,0 @@
-Game.Events.On("OnInventoryAdd","debug_print_add", function(item_name, delta, count)
-    com_print("Item added: " .. item_name .. ", Delta: " .. delta .. ", Count: " .. count)
-    print(item_name .. delta .. count)
-end)
-Game.Events.On("OnInventoryRemove","debug_print_remove", function(item_name, delta, count)
-    com_print("Item removed: " .. item_name .. ", Delta: " .. delta .. ", Count: " .. count)
-    print(item_name .. delta .. count)
-end)

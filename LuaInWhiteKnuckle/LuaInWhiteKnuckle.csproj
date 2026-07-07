@@ -41,7 +41,7 @@
 
 
 	<ItemGroup>
-		<Reference Include="lib\MoonSharp.Interpreter.dll" Private="True" />
+		<Reference Include="lib\*.dll" Private="True" />
 		<Reference Include="$(ManagedPath)\Assembly-CSharp.dll" Private="False" />
 		<Reference Include="$(ManagedPath)\Unity*.dll" Private="False" />
 		<Reference Include="$(ManagedPath)\ALINE.dll" Private="False" />
@@ -50,10 +50,5 @@
 		<Reference Include="$(ManagedPath)\DOTween.dll" Private="False" />
 
 		<Reference Include="$(BepInExPath)\*.dll" Exclude="$(BepInExPath)\0Harmony20.dll" Private="False" />
-	</ItemGroup>
-
-
-	<ItemGroup>
-	  <None Include="..\..\..\..\GAME\Steam\steamapps\common\White Knuckle\BepInEx\plugins\LuaInWK\LuaScript\infiniteItem.lua" Link="LuaScript\infiniteItem.lua" />
 	</ItemGroup>
 </Project>

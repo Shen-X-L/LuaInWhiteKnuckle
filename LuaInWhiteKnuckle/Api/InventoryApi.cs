@@ -2,6 +2,7 @@
 using LuaInWhiteKnuckle.Core;
 using MoonSharp.Interpreter;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -500,22 +501,56 @@ public class HandItemMonitor : IWatcher {
 	public IReadOnlyList<string> Events { get; } = ["OnHandItemChange"];
 	public float NextUpdateTime { get; set; }
 	public float Interval { get { return 0.2f; } }
-	private string[] _lastItems = new string[2];
-	private string[] _currentItems = new string[2];
+	private Item[] _lastItems = new Item[2];
+	private Item[] _currentItems = new Item[2];
 	public void Tick() {
 		Plugin.LogTest("HandItemMonitor.Tick");
 
 		if (Inventory.instance == null) return;
 
 		// 构建Dict
-		_currentItems[0] = Inventory.instance.itemHands[0].currentItem?.prefabName;
-		_currentItems[1] = Inventory.instance.itemHands[1].currentItem?.prefabName;
+		_currentItems[0] = Inventory.instance.itemHands[0].currentItem;
+		_currentItems[1] = Inventory.instance.itemHands[1].currentItem;
 
 		// 对比
 		if (_currentItems[0] != _lastItems[0])
-			ModEventBus.TriggerEvent("OnHandItemChange", "Hand0", _currentItems[0], _lastItems[0]);
+			ModEventBus.TriggerEvent("OnHandItemChange", "Hand0", _lastItems[0], _currentItems[0]);
 		if (_currentItems[1] != _lastItems[1])
-			ModEventBus.TriggerEvent("OnHandItemChange", "Hand1", _currentItems[1], _lastItems[1]);
+			ModEventBus.TriggerEvent("OnHandItemChange", "Hand1", _lastItems[1], _currentItems[1]);
+
+		(_lastItems, _currentItems) = (_currentItems, _lastItems);
+	}
+}
+
+public class PocketItemMonitor : IWatcher {
+	public int EnableCount { get; set; }
+	public IReadOnlyList<string> Events { get; } = ["OnPocketItemChange"];
+	public float NextUpdateTime { get; set; }
+	public float Interval { get { return 0.1f; } }
+	private List<(string, int)> _lastItems = new();
+	private List<(string, int)> _currentItems = new ();
+	public void Tick() {
+		Plugin.LogTest("PocketItemMonitor.Tick");
+
+		if (Inventory.instance == null) return;
+
+		// 构建口袋物品列表
+		foreach (var pocket in Inventory.instance.pockets) {
+			var items = pocket.pouch.pouchItems;
+			if (items != null && items.Count > 0)
+				_currentItems.Add((items[0].prefabName, items.Count));
+			else
+				_currentItems.Add((null, 0));
+		}
+
+		for (int i = 0; i < _currentItems.Count && i < _lastItems.Count; ++i) {
+			if (_currentItems[i] != _lastItems[i]) {
+				var (oldName, oldCount) = _lastItems[i];
+				var (newName, newCount) = _currentItems[i];
+				ModEventBus.TriggerEvent("OnPocketItemChange", 
+					"Pocket" + i,oldName,oldCount,newName,newCount);
+			}
+		}
 
 		(_lastItems, _currentItems) = (_currentItems, _lastItems);
 	}
