@@ -1,4 +1,4 @@
-﻿using LuaInWhiteKnuckle.Core;
+﻿using LuaInWhiteKnuckle.Game;
 using MoonSharp.Interpreter;
 using System;
 using System.Collections;

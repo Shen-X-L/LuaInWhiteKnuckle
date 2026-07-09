@@ -1,4 +1,5 @@
-﻿using LuaInWhiteKnuckle.Core;
+﻿using LuaInWhiteKnuckle.Registry;
+using LuaInWhiteKnuckle.Game;
 using MoonSharp.Interpreter;
 using Steamworks.Ugc;
 using System;
@@ -11,6 +12,11 @@ namespace LuaInWhiteKnuckle.Api;
 [LuaApi("Item")]
 [MoonSharpUserData]
 public class ItemApi {
+	/// <summary>
+	/// 通过 预制体名称 创建物品
+	/// </summary>
+	/// <param name="prefabName"></param>
+	/// <returns></returns>
 	public Item GetItem(string prefabName) {
 		GameObject itemPrefab = CL_AssetManager.GetAssetGameObject(prefabName);
 		var item = itemPrefab.GetComponent<Item_Object>()?.itemData;
@@ -21,9 +27,15 @@ public class ItemApi {
 		return item;
 	}
 
+	/// <summary>
+	/// 验证该 预制体 是否是 物品
+	/// </summary>
+	/// <param name="prefabName"></param>
+	/// <returns></returns>
 	public bool isItemExist(string prefabName) {
 		GameObject itemPrefab = CL_AssetManager.GetAssetGameObject(prefabName);
-		var item = itemPrefab.GetComponent<Item_Object>()?.itemData;
+		var item = itemPrefab.GetComponent<Item_Object>()?.itemData; 
+		itemPrefab = null;
 		return item != null;
 	}
 }
@@ -32,6 +44,14 @@ public class ItemApi {
 [MoonSharpUserData]
 public class ItemData {
 	private readonly Item _item;
+
+	[MoonSharpHidden]
+	public ItemData(Item item) {
+		_item = item;
+	}
+
+	[MoonSharpHidden]
+	public Item Raw => _item;
 
 	public ItemData() {
 		_item = new Item();
@@ -49,13 +69,6 @@ public class ItemData {
 		_item = itemObject.itemData;
 	}
 
-	[MoonSharpHidden]
-	public ItemData(Item item) {
-		_item = item;
-	}
-
-	[MoonSharpHidden]
-	public Item Raw => _item;
 	// 物品名称
 	public string itemName {
 		get => _item.itemName;
@@ -74,6 +87,11 @@ public class ItemData {
 	public float itemWeight {
 		get => _item.itemWeight;
 		set => _item.itemWeight = value;
+	}
+	// 丢弃时投掷速度
+	public float dropVel {
+		get => _item.dropVel;
+		set => _item.dropVel = value;
 	}
 	// 是否可放入口袋
 	public bool pocketable {

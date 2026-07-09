@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace LuaInWhiteKnuckle.Core;
+namespace LuaInWhiteKnuckle.Game;
 
 public class LuaFileManager : IDisposable {
 	private static readonly string _path = Path.GetDirectoryName(typeof(LuaFileManager).Assembly.Location) ?? string.Empty;

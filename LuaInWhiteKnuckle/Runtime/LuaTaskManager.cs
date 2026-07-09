@@ -1,9 +1,10 @@
-﻿using MoonSharp.Interpreter;
+﻿using LuaInWhiteKnuckle.Game;
+using MoonSharp.Interpreter;
 using System.Collections.Generic;
 using UnityEngine;
 using Coroutine = MoonSharp.Interpreter.Coroutine;
 
-namespace LuaInWhiteKnuckle.Core;
+namespace LuaInWhiteKnuckle.Runtime;
 
 public class LuaTask {
 	public Coroutine Coroutine;
@@ -121,7 +122,7 @@ public class LuaTaskManager : MonoBehaviour {
 			DynValue result = coroutine.Resume(args);
 
 			// 检查是否因为超出了指令限制而被强制挂起
-			// (注意：Hook 中不应该使用主动的 coroutine.yield，因为我们需要同步结果)
+			// (注意: Hook 中不应该使用主动的 coroutine.yield，因为我们需要同步结果)
 			if (result.Type == DataType.YieldRequest || coroutine.State == CoroutineState.Suspended) {
 				Plugin.Logger.LogError($"[Hook安全拦截] Hook '{debugName}' 试图执行异步挂起或存在死循环指令超限，已被强制熔断！");
 				// 视情况可以在这里调用 safeLuaSandbox.InitSandbox() 重置环境
@@ -150,7 +151,7 @@ public class LuaTaskManager : MonoBehaviour {
 
 			if (currentTime < task.ResumeTime) continue;
 
-			// 2. CPU 死循环防御：每帧充能极少量的安全指令数
+			// 2. CPU 死循环防御: 每帧充能极少量的安全指令数
 			task.Coroutine.AutoYieldCounter = MAX_INSTRUCTIONS_PER_FRAME;
 
 			DynValue result;

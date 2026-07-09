@@ -1,10 +1,9 @@
-﻿using LuaInWhiteKnuckle.Core;
-using System;
+﻿using LuaInWhiteKnuckle.Api;
+using LuaInWhiteKnuckle.Game;
 using System.Collections.Generic;
-using System.Text;
 using UnityEngine;
 
-namespace LuaInWhiteKnuckle.Api;
+namespace LuaInWhiteKnuckle.Runtime;
 
 public class GameWatcherManager : MonoBehaviour {
 	private static readonly List<IWatcher> _watchers = new();

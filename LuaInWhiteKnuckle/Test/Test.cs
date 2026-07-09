@@ -1,5 +1,5 @@
 ﻿using DG.Tweening.Plugins.Core;
-using LuaInWhiteKnuckle.Core;
+using LuaInWhiteKnuckle.Game;
 using MathNet.Numerics.LinearAlgebra.Factorization;
 using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Interop;

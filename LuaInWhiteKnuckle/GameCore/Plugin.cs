@@ -1,14 +1,15 @@
 ﻿using BepInEx;
+using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
 using LuaInWhiteKnuckle.Api;
-using MoonSharp.Interpreter;
-using System;
-using Unity.VisualScripting;
+using LuaInWhiteKnuckle.Registry;
+using LuaInWhiteKnuckle.Runtime;
+using Unity.VisualScripting.FullSerializer;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace LuaInWhiteKnuckle.Core;
+namespace LuaInWhiteKnuckle.Game;
 
 [BepInPlugin(PLUGIN_GUID, PLUGIN_NAME, PLUGIN_VERSION)]
 public class Plugin : BaseUnityPlugin {
@@ -25,9 +26,13 @@ public class Plugin : BaseUnityPlugin {
 	public static GameWatcherManager gameWatcherManager;
 	// 日志
 	internal static new ManualLogSource Logger;
-	private bool _isInitialized = false;
+	private static bool _isInitialized = false;
 	// Harmony上下文
 	private Harmony _harmony;
+
+	private static ConfigEntry<bool> _needResetSendBox;
+	public static bool NeedResetSendBox  { get { return _needResetSendBox.Value; } }
+
 	// 单例引用
 	public static Plugin Instance { get; set; }
 	private void Awake() {
@@ -49,12 +54,14 @@ public class Plugin : BaseUnityPlugin {
 		PluginRegistry.Initialize();
 
 		SceneManager.sceneLoaded += OnSceneLoaded;
+
+		_needResetSendBox = base.Config.Bind<bool>("SendBox", "Need Reset", true, "每次死亡重开时是否重置Lua环境");
 	}
 
 	/// <summary>
 	/// 当一个新场景被加载时触发
 	/// </summary>
-	private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
+	private static void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
 		if (scene.name == "Game-Main" || scene.name == "Playground") {
 			Logger.LogInfo($"[场景监听]检测到进入主游戏场景 '{scene.name}'，开始初始化全新的 Lua 沙箱...");
 			if (!_isInitialized) {
@@ -64,7 +71,12 @@ public class Plugin : BaseUnityPlugin {
 				gameWatcherManager = singleton.AddComponent<GameWatcherManager>();
 				DontDestroyOnLoad(singleton);
 			}
-			safeLuaSandbox.InitSandbox();
+			// 未初始化
+			if (!safeLuaSandbox.IsInitialized)
+				safeLuaSandbox.InitSandbox();
+			// 每次重开刷新环境 && 初始化
+			else if (NeedResetSendBox && safeLuaSandbox.IsInitialized)
+				safeLuaSandbox.ResetSandbox();
 			gameWatcherManager.enabled = true;
 		} else {
 			Logger.LogInfo($"[场景监听]检测到退出主游戏场景 '{scene.name}'，开始强制销毁并清空 Lua 沙箱...");
@@ -81,7 +93,7 @@ public class Plugin : BaseUnityPlugin {
 	/// </summary>
 	private void OnDestroy() {
 		Logger.LogError($"如果不是关闭游戏, 则mod被违规卸载");
-		// 良好的习惯：Mod 被销毁时移除事件监听
+		// 良好的习惯: Mod 被销毁时移除事件监听
 		SceneManager.sceneLoaded -= OnSceneLoaded;
 
 		// 释放文件监控句柄

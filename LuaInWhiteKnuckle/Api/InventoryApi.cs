@@ -1,18 +1,15 @@
 ﻿using HarmonyLib;
-using LuaInWhiteKnuckle.Core;
+using LuaInWhiteKnuckle.Game;
+using LuaInWhiteKnuckle.Registry;
+using LuaInWhiteKnuckle.Runtime;
 using MoonSharp.Interpreter;
+using Steamworks.Ugc;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Text;
-using Unity.Core;
-using Unity.Entities.UniversalDelegates;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.UIElements;
 using static Inventory;
 
 namespace LuaInWhiteKnuckle.Api;
@@ -30,38 +27,38 @@ public class InventoryApi {
 	private static readonly AccessTools.FieldRef<Inventory, int> _pouchMaxCapacityRef =
 		AccessTools.FieldRefAccess<Inventory, int>("pouchMaxCapacity");
 
+	[MoonSharpHidden]
+	internal static Inventory _inventory = null;
+
 	#region[背包物品API]
+
+	/// <summary>
+	/// 通过物品名称获取物品 搜寻顺序背包-口袋-双手
+	/// </summary>
+	public Item GetItem(string itemName) => _inventory.GetItem(itemName);
+
+	/// <summary>
+	/// 通过预制体名称获取物品 搜寻顺序背包-口袋-双手
+	/// </summary>
+	public Item GetItemByPrefab(string prefabName) => _inventory.GetItemByPrefab(prefabName);
+
+	/// <summary>
+	/// 通过预制体名称获取对应全物品 搜寻顺序背包-口袋-双手
+	/// </summary>
+	public List<Item> GetItemsByPrefab(string prefabName, bool includeHands = true, bool includeBag = true) =>
+		new List<Item>(_inventory.GetItemsByPrefab(prefabName, includeHands, includeBag));
 
 	/// <summary>
 	/// 获取全背包物品
 	/// </summary>
 	/// <returns></returns>
-	public List<Item> GetItems() {
-		if (Inventory.instance == null) {
-			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance is null");
-			return null;
-		}
-		var itemApis = new List<Item>();
-		foreach (var item in Inventory.instance.GetItems())
-			itemApis.Add(item);
-
-		foreach (Pouch extraPouch in Inventory.instance.extraPouches)
-			foreach (var item in extraPouch.pouchItems)
-				itemApis.Add(item);
-
-		return itemApis;
-	}
+	public List<Item> GetItems(bool checkBag = true, bool checkHands = true, bool checkPouches = true) =>
+		new List<Item>(_inventory.GetItems(checkBag, checkHands, checkPouches));
 
 	/// <summary>
 	/// 清空背包
 	/// </summary>
-	public void ClearInventory() {
-		if (Inventory.instance == null) {
-			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance is null");
-			return;
-		}
-		_clearInventory(Inventory.instance);
-	}
+	public void ClearInventory() => _clearInventory(_inventory);
 
 	/// <summary>
 	/// 添加物品到背包
@@ -71,10 +68,7 @@ public class InventoryApi {
 	public void AddItem(ItemData item, int count = 1) {
 		if (item == null) return;
 		if (count <= 0) return;
-		if (Inventory.instance == null) {
-			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance is null");
-			return;
-		}
+		if (_inventory == null) return;
 		GameObject itemPrefab = CL_AssetManager.GetAssetGameObject(item.prefabName);
 		if (itemPrefab == null) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Item prefab not found for prefab '{item.prefabName}'");
@@ -84,7 +78,7 @@ public class InventoryApi {
 		for (int i = 0; i < count; i++) {
 			var pickupObj = GameObject.Instantiate(itemPrefab, new Vector3(0, 1, 0), Quaternion.identity);
 			var itemObject = pickupObj.GetComponent<Item_Object>();
-			Inventory.instance.AddItemToInventoryCenter(itemObject.itemData);
+			_inventory.AddItemToInventoryCenter(itemObject.itemData);
 			itemObject.gameObject.SetActive(false);
 		}
 	}
@@ -94,10 +88,8 @@ public class InventoryApi {
 	public void AddItem(string item, int count = 1) {
 		if (item == null) return;
 		if (count <= 0) return;
-		if (Inventory.instance == null) {
-			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance is null");
-			return;
-		}
+		if (_inventory == null) return;
+
 		GameObject itemPrefab = CL_AssetManager.GetAssetGameObject(item);
 		if (itemPrefab == null) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Item prefab not found for prefab '{item}'");
@@ -107,7 +99,7 @@ public class InventoryApi {
 		for (int i = 0; i < count; i++) {
 			var pickupObj = GameObject.Instantiate(itemPrefab, new Vector3(0, 1, 0), Quaternion.identity);
 			var itemObject = pickupObj.GetComponent<Item_Object>();
-			Inventory.instance.AddItemToInventoryCenter(itemObject.itemData);
+			_inventory.AddItemToInventoryCenter(itemObject.itemData);
 			itemObject.gameObject.SetActive(false);
 		}
 	}
@@ -118,11 +110,8 @@ public class InventoryApi {
 	public void RemoveItem(string item, int count = 1) {
 		if (item == null) return;
 		if (count <= 0) return;
-		if (Inventory.instance == null) {
-			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance is null");
-			return;
-		}
-		var bagItems = Inventory.instance.bagItems;
+		if (_inventory == null) return;
+		var bagItems = _inventory.bagItems;
 		for (int i = bagItems.Count; i >= 0; i--) {
 			if (bagItems[i].prefabName == item) {
 				bagItems.RemoveAt(i);
@@ -130,14 +119,66 @@ public class InventoryApi {
 				if (count <= 0) break;
 			}
 		}
-		Inventory.instance.CalculateEncumberance();
+		_inventory.CalculateEncumberance();
 	}
 
 	/// <summary>
 	/// 重置背包内物品坐标
 	/// </summary>
-	public void ResetItemPositions() { 
-	
+	public void ResetItemPositions() {
+		var items = _inventory.GetItems(checkBag: true, checkHands: false, checkPouches: false);
+		int i = 0;              // 步长
+		int x = 0, y = 0;       // 坐标
+		int stepLength = 1;     // 当前该走的步长
+		int stepCounter = 0;    // 在相同步长下已经走了几次（取0/1）
+		int remaining = 1;      // 当前方向剩余步数
+		int dir = 0;            // 0右 1上 2左 3下
+
+		for (; i < items.Count - 1; ++i) {
+			var item = items[i];
+			_inventory.AddItemToInventoryScreen(
+				new Vector3(x * 0.05f, y * 0.05f, 1f),
+				item, localSpacePosition: true, pushItems: false);
+			SpiralCoordinate();
+		}
+		_inventory.AddItemToInventoryScreen(
+			new Vector3(x * 0.05f, y * 0.05f, 1f),
+			items[i], localSpacePosition: true, pushItems: true);
+
+		void SpiralCoordinate() {
+			if (i == 0) return;
+			// 走一步
+			switch (dir) {
+				case 0: x++; break;   // 右
+				case 1: y++; break;   // 上
+				case 2: x--; break;   // 左
+				case 3: y--; break;   // 下
+			}
+			remaining--;
+			// 当前方向走完，切换方向
+			if (remaining == 0) {
+				dir = (dir + 1) & 0b11;       // 下一方向
+				stepCounter++;
+				// 每两次同长度走完后，步长+1
+				if (stepCounter == 2) {
+					stepCounter = 0;
+					stepLength++;
+				}
+				remaining = stepLength;    // 新方向的步数
+			}
+		}
+
+	}
+
+	// 丢弃物品
+	public void DropItemIntoWorld(Item item, Vector3 pos) => _inventory.DropItemIntoWorld(item, pos);
+
+	/// <summary>
+	/// 丢弃全部物品
+	/// </summary>
+	public void DropAllItem(Vector3 pos) {
+		var items = new List<Item>(_inventory.GetItems());
+		foreach (var item in items) _inventory.DropItemIntoWorld(item, pos);
 	}
 	#endregion
 
@@ -147,12 +188,8 @@ public class InventoryApi {
 	/// 获取手中物品
 	/// </summary>
 	public List<Item> GetHandItems() {
-		if (Inventory.instance == null) {
-			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance is null");
-			return null;
-		}
 		var itemApis = new List<Item>();
-		foreach (var item in Inventory.instance.itemHands) {
+		foreach (var item in _inventory?.itemHands) {
 			itemApis.Add(item.currentItem);
 		}
 		return itemApis;
@@ -163,7 +200,7 @@ public class InventoryApi {
 	/// </summary>
 	public void AddHandItem(string item, int handIndex) {
 		if (item == null) return;
-		if (Inventory.instance == null || ENT_Player.GetPlayer() == null) {
+		if (_inventory == null || ENT_Player.GetPlayer() == null) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance or player is null");
 			return;
 		}
@@ -174,18 +211,31 @@ public class InventoryApi {
 		}
 		var pickupObj = GameObject.Instantiate(itemPrefab, new Vector3(0, 1, 0), Quaternion.identity);
 		var itemObject = pickupObj.GetComponent<Item_Object>();
-		Inventory.instance.AddItemToHand(itemObject.itemData, handIndex);
+		_inventory.AddItemToHand(itemObject.itemData, handIndex);
 		itemObject.gameObject.SetActive(false);
 	}
-	/// <summary>
-	/// 从手中删除物品
-	/// </summary>
-	public void RemoveHandItem(int handIndex) {
-		if (Inventory.instance == null || ENT_Player.GetPlayer() == null) {
-			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance or player is null");
+
+	// 从手中删除物品
+	public void RemoveHandItem(int handIndex) => _inventory?.DestroyItemInHand(handIndex);
+
+	// 将手中物品放入背包.
+	public void MoveItemFromHandToInventory(int handID) =>
+		_inventory?.AddItemToInventoryScreen(
+			new Vector3(0f, 0f, 1f) + UnityEngine.Random.insideUnitSphere * 0.01f,
+			_inventory.itemHands[handID].currentItem,
+			localSpacePosition: true
+		);
+
+	// 丢弃手中物品
+	public void DropItem(int handIndex) {
+		var hands = ENT_Player.GetPlayer().hands;
+		if (handIndex == -1) { 
+			foreach(var hand in hands)
+				hand.DropItem();
 			return;
 		}
-		Inventory.instance.DestroyItemInHand(handIndex);
+		if (handIndex < hands.Length)
+			hands[handIndex].DropItem();
 	}
 
 	#endregion
@@ -196,27 +246,24 @@ public class InventoryApi {
 	/// 获取口袋物品
 	/// </summary>
 	public List<Item> GetPocketItem(int pocketIndex) {
-		if (Inventory.instance == null) {
-			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance is null");
+		if (_inventory == null)
 			return null;
-		}
-		if (pocketIndex < 0 || pocketIndex >= Inventory.instance.pockets.Count) {
+
+		if (pocketIndex < 0 || pocketIndex >= _inventory.pockets.Count) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Invalid pocket index {pocketIndex}");
 			return null;
 		}
 
-		return Inventory.instance.pockets[pocketIndex].pouch.pouchItems;
+		return new List<Item>(_inventory.pockets[pocketIndex].pouch.pouchItems);
 	}
 
 	/// <summary>
 	/// 添加物品到口袋
 	/// </summary>
 	public bool AddPocketItem(int pocketIndex, string item, int count = 1) {
-		if (Inventory.instance == null) {
-			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance is null");
-			return false;
-		}
-		if (pocketIndex < 0 || pocketIndex >= Inventory.instance.pockets.Count) {
+		if (_inventory == null) return false;
+
+		if (pocketIndex < 0 || pocketIndex >= _inventory.pockets.Count) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Invalid pocket index {pocketIndex}");
 			return false;
 		}
@@ -225,7 +272,7 @@ public class InventoryApi {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Item prefab not found for prefab '{item}'");
 			return false;
 		}
-		var pocket = Inventory.instance.pockets[pocketIndex];
+		var pocket = _inventory.pockets[pocketIndex];
 		if (!pocket.pouch.CanAddItemToPouch(itemPrefab.GetComponent<Item_Object>().itemData)) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Cannot add item to pocket {pocketIndex}");
 			return false;
@@ -243,15 +290,12 @@ public class InventoryApi {
 	/// 从口袋删除物品
 	/// </summary>
 	public void RemovePocketItem(int pocketIndex, string item, int count = 1) {
-		if (Inventory.instance == null) {
-			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance is null");
-			return;
-		}
-		if (pocketIndex < 0 || pocketIndex >= Inventory.instance.pockets.Count) {
+		if (_inventory == null) return;
+		if (pocketIndex < 0 || pocketIndex >= _inventory.pockets.Count) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Invalid pocket index {pocketIndex}");
 			return;
 		}
-		var pocket = Inventory.instance.pockets[pocketIndex];
+		var pocket = _inventory.pockets[pocketIndex];
 		for (int i = pocket.pouch.pouchItems.Count - 1; i >= 0; i--) {
 			if (pocket.pouch.pouchItems[i].prefabName == item) {
 				pocket.pouch.RemoveItemFromPouch(pocket.pouch.pouchItems[i]);
@@ -265,15 +309,13 @@ public class InventoryApi {
 	/// 口袋对应小袋
 	/// </summary>
 	public Pouch PocketPouch(int pocketIndex) {
-		if (Inventory.instance == null) {
-			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance is null");
-			return null;
-		}
-		if (pocketIndex < 0 || pocketIndex >= Inventory.instance.pockets.Count) {
+		if (_inventory == null) return null;
+
+		if (pocketIndex < 0 || pocketIndex >= _inventory.pockets.Count) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Invalid pocket index {pocketIndex}");
 			return null;
 		}
-		return Inventory.instance.pockets[pocketIndex].pouch;
+		return _inventory.pockets[pocketIndex].pouch;
 	}
 
 	#endregion
@@ -284,26 +326,23 @@ public class InventoryApi {
 	/// 获取小袋物品
 	/// </summary>
 	public List<Item> GetPouchItem(int pouchIndex) {
-		if (Inventory.instance == null) {
-			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance is null");
-			return null;
-		}
-		if (pouchIndex < 0 || pouchIndex >= Inventory.instance.extraPouches.Count) {
+		if (_inventory == null) return null;
+
+		if (pouchIndex < 0 || pouchIndex >= _inventory.extraPouches.Count) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Invalid pouch index {pouchIndex}");
 			return null;
 		}
-		return Inventory.instance.extraPouches[pouchIndex].pouchItems;
+
+		return new List<Item>(_inventory.extraPouches[pouchIndex].pouchItems);
 	}
 
 	/// <summary>
 	/// 添加物品到小袋
 	/// </summary>
 	public bool AddPouchItem(int pouchIndex, string item, int count = 1) {
-		if (Inventory.instance == null) {
-			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance is null");
-			return false;
-		}
-		if (pouchIndex < 0 || pouchIndex >= Inventory.instance.extraPouches.Count) {
+		if (_inventory == null) return false;
+
+		if (pouchIndex < 0 || pouchIndex >= _inventory.extraPouches.Count) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Invalid pouch index {pouchIndex}");
 			return false;
 		}
@@ -312,7 +351,7 @@ public class InventoryApi {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Item prefab not found for prefab '{item}'");
 			return false;
 		}
-		var pouch = Inventory.instance.extraPouches[pouchIndex];
+		var pouch = _inventory.extraPouches[pouchIndex];
 		if (!pouch.CanAddItemToPouch(itemPrefab.GetComponent<Item_Object>().itemData)) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Cannot add item to pouch {pouchIndex}");
 			return false;
@@ -330,15 +369,13 @@ public class InventoryApi {
 	/// 从小袋删除物品
 	/// </summary>
 	public void RemovePouchItem(int pouchIndex, string item, int count = 1) {
-		if (Inventory.instance == null) {
-			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance is null");
-			return;
-		}
-		if (pouchIndex < 0 || pouchIndex >= Inventory.instance.extraPouches.Count) {
+		if (_inventory == null) return;
+
+		if (pouchIndex < 0 || pouchIndex >= _inventory.extraPouches.Count) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Invalid pouch index {pouchIndex}");
 			return;
 		}
-		var pouch = Inventory.instance.extraPouches[pouchIndex];
+		var pouch = _inventory.extraPouches[pouchIndex];
 		for (int i = pouch.pouchItems.Count - 1; i >= 0; i--) {
 			if (pouch.pouchItems[i].prefabName == item) {
 				pouch.RemoveItemFromPouch(pouch.pouchItems[i]);
@@ -353,48 +390,38 @@ public class InventoryApi {
 	#region[背包属性API]
 
 	// 小袋数量
-	public int pouchCount { get => Inventory.instance?.pouchCount ?? 0; }
+	public int pouchCount { get => _inventory?.pouchCount ?? 0; }
 	// 小袋容量
 	public int pouchMaxCapacity {
-		get => Inventory.instance == null ? 0 : _pouchMaxCapacityRef(Inventory.instance);
-		set { if (Inventory.instance != null) _pouchMaxCapacityRef(Inventory.instance) = value; }
+		get => _inventory == null ? 0 : _pouchMaxCapacityRef(_inventory);
+		set { if (_inventory != null) _pouchMaxCapacityRef(_inventory) = value; }
 	}
 	// 当前负重系数
 	public float encumberance {
-		get => Inventory.instance?.encumberance ?? 0;
-		set => Inventory.instance?.encumberance = value;
+		get => _inventory?.encumberance ?? 0;
+		set => _inventory?.encumberance = value;
 	}
 	// 最大超重物品数
 	public int maxEncumberedItems {
-		get => Inventory.instance?.maxEncumberedItems ?? 0;
-		set => Inventory.instance?.maxEncumberedItems = value;
+		get => _inventory?.maxEncumberedItems ?? 0;
+		set => _inventory?.maxEncumberedItems = value;
 	}
 	// 无惩罚物品数
 	public int unencumberedItems {
-		get => Inventory.instance?.unencumberedItems ?? 0;
-		set => Inventory.instance?.unencumberedItems = value;
+		get => _inventory?.unencumberedItems ?? 0;
+		set => _inventory?.unencumberedItems = value;
 	}
 
 	// 额外小袋列表
-	public List<Pouch> extraPouches => Inventory.instance?.extraPouches ?? new List<Pouch>();
+	public List<Pouch> extraPouches => _inventory?.extraPouches ?? new List<Pouch>();
 
 	// 添加一个小袋
-	public void AddExtraPouch() {
-		if (Inventory.instance == null) {
-			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance is null");
-			return;
-		}
-		Inventory.instance.AddExtraPouch();
-	}
+	public void AddExtraPouch() => _inventory?.AddExtraPouch();
+
 
 	// 移除一个小袋
-	public void RemoveExtraPouch() {
-		if (Inventory.instance == null) {
-			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance is null");
-			return;
-		}
-		Inventory.instance.RemoveExtraPouch();
-	}
+	public void RemoveExtraPouch() => _inventory?.RemoveExtraPouch();
+
 
 	#endregion
 }
@@ -408,10 +435,6 @@ public class InventoryApi {
 public class PouchData {
 	private readonly Pouch _pouch;
 
-	public PouchData() {
-		_pouch = new Pouch();
-	}
-
 	[MoonSharpHidden]
 	public PouchData(Pouch pouch) {
 		_pouch = pouch;
@@ -419,6 +442,11 @@ public class PouchData {
 
 	[MoonSharpHidden]
 	public Pouch Raw => _pouch;
+
+	public PouchData() {
+		_pouch = new Pouch();
+	}
+
 	// 小袋中的物品
 	public List<Item> pouchItems => _pouch.pouchItems;
 	// 最大容量
@@ -455,17 +483,17 @@ public class InventoryMonitor : IWatcher {
 	public void Tick() {
 		Plugin.LogTest("InventoryMonitor.Tick");
 
-		if (Inventory.instance == null) return;
+		if (InventoryApi._inventory == null) return;
 
 		// 清空当前帧缓存
 		_currentItems.Clear();
 		// 构建Dict
-		foreach (var item in Inventory.instance.GetItems()) {
+		foreach (var item in InventoryApi._inventory.GetItems()) {
 			_currentItems.TryGetValue(item.prefabName, out int count);
 			_currentItems[item.prefabName] = count + 1;
 		}
 
-		foreach (Pouch extraPouch in Inventory.instance.extraPouches)
+		foreach (Pouch extraPouch in InventoryApi._inventory.extraPouches)
 			foreach (var item in extraPouch.pouchItems) {
 				_currentItems.TryGetValue(item.prefabName, out int count);
 				_currentItems[item.prefabName] = count + 1;
@@ -506,11 +534,11 @@ public class HandItemMonitor : IWatcher {
 	public void Tick() {
 		Plugin.LogTest("HandItemMonitor.Tick");
 
-		if (Inventory.instance == null) return;
+		if (InventoryApi._inventory == null) return;
 
 		// 构建Dict
-		_currentItems[0] = Inventory.instance.itemHands[0].currentItem;
-		_currentItems[1] = Inventory.instance.itemHands[1].currentItem;
+		_currentItems[0] = InventoryApi._inventory.itemHands[0].currentItem;
+		_currentItems[1] = InventoryApi._inventory.itemHands[1].currentItem;
 
 		// 对比
 		if (_currentItems[0] != _lastItems[0])
@@ -528,14 +556,14 @@ public class PocketItemMonitor : IWatcher {
 	public float NextUpdateTime { get; set; }
 	public float Interval { get { return 0.1f; } }
 	private List<(string, int)> _lastItems = new();
-	private List<(string, int)> _currentItems = new ();
+	private List<(string, int)> _currentItems = new();
 	public void Tick() {
 		Plugin.LogTest("PocketItemMonitor.Tick");
 
-		if (Inventory.instance == null) return;
+		if (InventoryApi._inventory == null) return;
 
 		// 构建口袋物品列表
-		foreach (var pocket in Inventory.instance.pockets) {
+		foreach (var pocket in InventoryApi._inventory.pockets) {
 			var items = pocket.pouch.pouchItems;
 			if (items != null && items.Count > 0)
 				_currentItems.Add((items[0].prefabName, items.Count));
@@ -547,8 +575,8 @@ public class PocketItemMonitor : IWatcher {
 			if (_currentItems[i] != _lastItems[i]) {
 				var (oldName, oldCount) = _lastItems[i];
 				var (newName, newCount) = _currentItems[i];
-				ModEventBus.TriggerEvent("OnPocketItemChange", 
-					"Pocket" + i,oldName,oldCount,newName,newCount);
+				ModEventBus.TriggerEvent("OnPocketItemChange",
+					"Pocket" + i, oldName, oldCount, newName, newCount);
 			}
 		}
 
@@ -570,10 +598,10 @@ public class Patch_Inventory {
 
 		foreach (var inst in instructions) {
 			if (!foundAnchor) {
-				// 定位锚点：找第一个加载 bagHandler 字段的指令
+				// 定位锚点: 找第一个加载 bagHandler 字段的指令
 				if (inst.opcode == OpCodes.Ldfld && inst.operand is FieldInfo field && field.Name == "bagHandler") {
 					foundAnchor = true;
-					// 所以我们在这里手动注入底层的 IL 指令： this.pouchCount = this.pouchCount + 1;
+					// 所以我们在这里手动注入底层的 IL 指令:  this.pouchCount = this.pouchCount + 1;
 
 					yield return new CodeInstruction(OpCodes.Ldarg_0); // this
 					yield return new CodeInstruction(OpCodes.Ldarg_0); // this

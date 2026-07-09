@@ -1,33 +1,15 @@
-﻿using LuaInWhiteKnuckle.Core;
+﻿using LuaInWhiteKnuckle.Registry;
 using MoonSharp.Interpreter;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace LuaInWhiteKnuckle.Api;
 
-public class BuffApi {
-}
 
 [LuaData(typeof(BuffContainer))]
 [MoonSharpUserData]
 public class BuffContainerData {
 	private readonly BuffContainer _container;
-
-	public BuffContainerData() {
-		_container = new BuffContainer();
-		_container.id = "";
-		_container.desc = "";
-		_container.buffs = new List<BuffContainer.Buff>();
-	}
-
-	public BuffContainerData(string id = "", string desc = "", params BuffData[] buffDatas) {
-		_container = new BuffContainer();
-		_container.id = "";
-		_container.desc = "";
-		_container.buffs = buffDatas.Select(buffData => buffData.Raw).ToList();
-	}
 
 	[MoonSharpHidden]
 	public BuffContainerData(BuffContainer container) {
@@ -36,6 +18,20 @@ public class BuffContainerData {
 
 	[MoonSharpHidden]
 	public BuffContainer Raw => _container;
+
+	public BuffContainerData() {
+		_container = new BuffContainer();
+		_container.id = "";
+		_container.desc = "";
+		_container.buffs = new List<BuffContainer.Buff>();
+	}
+
+	public BuffContainerData(string id = "", string desc = "", params BuffContainer.Buff[] buffDatas) {
+		_container = new BuffContainer();
+		_container.id = "";
+		_container.desc = "";
+		_container.buffs = buffDatas.ToList();
+	}
 
 	// 增益容器ID
 	public string id {
@@ -89,38 +85,4 @@ public class BuffContainerData {
 		});
 	}
 
-}
-
-[LuaData(typeof(BuffContainer.Buff))]
-[MoonSharpUserData]
-public class BuffData {
-	private readonly BuffContainer.Buff _buff;
-
-	public BuffData() {
-		_buff = new BuffContainer.Buff { id = "", maxAmount = 0 };
-	}
-	public BuffData(string id, float amount) {
-		_buff = new BuffContainer.Buff { id = id, maxAmount = amount, };
-	}
-
-	[MoonSharpHidden]
-	public BuffData(BuffContainer.Buff buff) { _buff = buff; }
-
-	[MoonSharpHidden]
-	public BuffContainer.Buff Raw => _buff;
-
-	// 属性ID(如 "addJump", "addSpeed", "addSlow")
-	public string id {
-		get => _buff.id;
-		set => _buff.id = value;
-	}
-
-	// 最大增益值
-	public float maxAmount {
-		get => _buff.maxAmount;
-		set => _buff.maxAmount = value;
-	}
-
-	// 实时增益量 仅访问
-	public float amount { get => _buff.amount; }
 }

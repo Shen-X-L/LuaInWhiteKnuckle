@@ -1,4 +1,5 @@
-﻿using LuaInWhiteKnuckle.Core;
+﻿using LuaInWhiteKnuckle.Registry;
+using LuaInWhiteKnuckle.Game;
 using MoonSharp.Interpreter;
 using System;
 using System.Collections.Generic;
@@ -8,7 +9,61 @@ using static Damageable;
 
 namespace LuaInWhiteKnuckle.Api;
 
-public class EntityApi {
+#region[数据类]
+
+[LuaData(typeof(GameEntity))]
+[MoonSharpUserData]
+public class GameEntityData {
+	private readonly GameEntity _gameEntity;
+
+	[MoonSharpHidden]
+	public GameEntityData(GameEntity gameEntity) {
+		_gameEntity = gameEntity;
+	}
+
+	[MoonSharpHidden]
+	public GameEntity Raw => _gameEntity;
+
+	// 获取全部实体
+	public static List<GameEntity> GetAllGameEntity() => GameEntity.entities;
+
+	// 对象类型: "entity" (实体)
+	public string objectType {
+		get => _gameEntity?.objectType;
+		set => _gameEntity?.objectType = value;
+	}
+	// 实体预制体 ID: "entity"
+	public string entityPrefabID { get => _gameEntity?.entityPrefabID; }
+	// 对象名称
+	public string name {
+		get => _gameEntity?.name;
+		set => _gameEntity?.name = value;
+	}
+	// 当前生命值
+	public float health {
+		get => _gameEntity?.health ?? 0f;
+		set => _gameEntity?.health = value;
+	}
+	// 最大生命值
+	public float maxHealth {
+		get => _gameEntity?.maxHealth ?? 0f;
+		set => _gameEntity?.maxHealth = value;
+	}
+	public ObjectTagger tagger { get => _gameEntity.gameObject.GetComponent<ObjectTagger>(); }
+	// 火焰时间乘数
+	public float fireTimeMult {
+		get => _gameEntity?.fireTimeMult ?? 0f;
+		set => _gameEntity?.fireTimeMult = value;
+	}
+	// 火焰伤害乘数
+	public float fireDamageMult {
+		get => _gameEntity?.fireDamageMult ?? 0f;
+		set => _gameEntity?.fireDamageMult = value;
+	}
+	// 是否死亡
+	public bool dead { get => _gameEntity?.dead ?? true; }
+	// 实际类型
+	public string typeName { get => _gameEntity.GetType().Name; }
 }
 
 [LuaData(typeof(DamageInfo))]
@@ -16,7 +71,13 @@ public class EntityApi {
 public class DamageInfoData {
 	private readonly Damageable.DamageInfo _damageInfo;
 
-	public DamageInfoData() { 
+	[MoonSharpHidden]
+	public DamageInfoData(Damageable.DamageInfo damageInfo) { _damageInfo = damageInfo; }
+
+	[MoonSharpHidden]
+	public Damageable.DamageInfo Raw => _damageInfo;
+
+	public DamageInfoData() {
 		_damageInfo = new Damageable.DamageInfo();
 		_damageInfo.type = "";
 		_damageInfo.tags = new List<string>();
@@ -29,16 +90,6 @@ public class DamageInfoData {
 		_damageInfo.tags = new List<string>(tags.Length);
 		_damageInfo.tags.Add(type);
 		_damageInfo.tags.AddRange(tags);
-	}
-
-	[MoonSharpHidden]
-	public DamageInfoData(Damageable.DamageInfo damageInfo) {_damageInfo = damageInfo;}
-
-	[MoonSharpHidden]
-	public Damageable.DamageInfo Raw => _damageInfo;
-
-	public static void Test() {
-		Plugin.LogTest("TestA");
 	}
 
 	// 伤害数值
@@ -78,8 +129,20 @@ public class DamageInfoData {
 		get => _damageInfo.hitBuffContainer;
 		set => _damageInfo.hitBuffContainer = value;
 	}
-
-	// 是否应该被使用
-	public bool needEnabled = true;
 }
 
+[LuaData(typeof(ObjectTagger))]
+[MoonSharpUserData]
+public class ObjectTaggerData {
+	private readonly ObjectTagger _objectTagger;
+
+	[MoonSharpHidden]
+	public ObjectTaggerData(ObjectTagger objectTagger) { _objectTagger = objectTagger; }
+
+	[MoonSharpHidden]
+	public ObjectTagger Raw => _objectTagger;
+
+	public List<string> tags { get => _objectTagger?.tags; }
+}
+
+#endregion

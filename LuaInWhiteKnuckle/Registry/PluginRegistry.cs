@@ -1,14 +1,15 @@
-﻿using LuaInWhiteKnuckle.Collections;
+﻿using HarmonyLib;
+using LuaInWhiteKnuckle.Collections;
+using LuaInWhiteKnuckle.Game;
 using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Interop;
 using System;
-using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Text;
 
-namespace LuaInWhiteKnuckle.Core;
+namespace LuaInWhiteKnuckle.Registry;
 
 public static class PluginRegistry {
 	// API单例 对象注册表
@@ -23,7 +24,6 @@ public static class PluginRegistry {
 	/// </summary>
 	public static void Initialize() {
 		RegisterAssembly(typeof(PluginRegistry).Assembly);
-		EnableJitGenericRegistration();
 	}
 
 	/// <summary>
@@ -158,6 +158,36 @@ public static class PluginRegistry {
 
 	#endregion
 
+	#region[原版游戏类型注册]
+
+	/// <summary>
+	/// 注册无法编辑源码的原版游戏类型 (如简单的结构体或数据类)
+	/// 这将自动注册 UserData，并在 Lua 环境中生成静态包装表和构造函数
+	/// </summary>
+	public static void RegisterGameType<T>() {
+		Type type = typeof(T);
+
+		// 注册到 MoonSharp 的原生 UserData 系统中
+		UserData.RegisterType<T>();
+
+		// 塞入你现有的静态类型集合中
+		// 这样在 Build(script) 时，它会自动享受你的 RegisterStatic 元表待遇
+		_userDataType.Add(type);
+
+		Plugin.LogInfo($"[LuaInWK] 注册原版游戏类型: {type.Name}");
+	}
+
+	/// <summary>
+	/// 非泛型版本，方便反射调用
+	/// </summary>
+	public static void RegisterGameType(Type type) {
+		UserData.RegisterType(type);
+		_userDataType.Add(type);
+		Plugin.LogInfo($"[LuaInWK] 注册原版游戏类型: {type.Name}");
+	}
+
+	#endregion
+
 	#region[代理类注册]
 
 	// 注册代理类型到 MoonSharp 的 UserData 系统中
@@ -180,9 +210,12 @@ public static class PluginRegistry {
 	// 注册泛型代理类型到 MoonSharp 的 UserData 系统中
 	public static void RegisterGenericProxy(Type proxyOpenType, Type targetOpenType, params Type[] genericArgs) {
 		try {
-			// 在运行时闭合泛型类型
+			// 构建 闭合泛型
 			Type closedProxyType = proxyOpenType.MakeGenericType(genericArgs);
 			Type closedTargetType = targetOpenType.MakeGenericType(genericArgs);
+			// 查看是否注册
+			if (UserData.GetDescriptorForType(closedTargetType, false) is ProxyUserDataDescriptor)
+				return;
 			// 构建闭合泛型并注册代理
 			RegisterProxy(closedProxyType, closedTargetType);
 			Plugin.LogInfo($"[LuaInWK] 注册泛型代理: {closedTargetType.Name} -> {closedProxyType.Name}");
@@ -193,60 +226,12 @@ public static class PluginRegistry {
 
 	#endregion
 
-	/// <summary>
-	/// 开启运行时 JIT 泛型自动捕获注册
-	/// 在脚本引擎初始化时调用一次此方法即可。
-	/// </summary>
-	public static void EnableJitGenericRegistration() {
-		Script.GlobalOptions.CustomConverters.SetClrToScriptCustomConversion<IList>((script, list) => {
-			Type targetType = list.GetType();
-			// 类型不是泛型 || 闭合泛型的开放泛型不是List
-			if (!targetType.IsGenericType || targetType.GetGenericTypeDefinition() != typeof(List<>)) 
-				return UserData.Create(list);
-			// 获取泛型参数
-			Type[] args = targetType.GetGenericArguments();
-			// 构建 闭合泛型类型
-			Type proxyType = typeof(LuaList<>).MakeGenericType(args);
-			// 查看该 闭合泛型类型代理类LuaList<T> 是否注册
-			if (UserData.IsTypeRegistered(proxyType)) 
-				return UserData.Create(list);// 已经注册过了
-			// 注册 闭合泛型类型代理类LuaList<T>
-			UserData.RegisterType(proxyType);
-			// 调用 开放泛型代理注册 双向转换代理
-			RegisterGenericProxy(typeof(LuaList<>), typeof(List<>), args);
-			Plugin.LogInfo($"[JIT泛型] 动态注册了 LuaList<{args[0].Name}>");
-			return UserData.Create(list);
-		});
-		// 同理：拦截所有 Dictionary<K, V> (通过 IDictionary 接口拦截)
-		Script.GlobalOptions.CustomConverters.SetClrToScriptCustomConversion<IDictionary>((script, dict) => {
-			Type targetType = dict.GetType();
-			// 类型不是泛型 || 闭合泛型的开放泛型不是Dictionary<,>
-			if (!targetType.IsGenericType || targetType.GetGenericTypeDefinition() != typeof(Dictionary<,>)) 
-				return UserData.Create(dict);
-			// 获取泛型参数
-			Type[] typeArgs = targetType.GetGenericArguments();
-			// 构建 闭合泛型类型
-			Type proxyType = typeof(LuaDictionary<,>).MakeGenericType(typeArgs);
-			// 查看该 闭合泛型类型代理类LuaDictionary<K,V> 是否注册
-			if (UserData.IsTypeRegistered(proxyType)) 
-				return UserData.Create(dict);// 已经注册过了
-			// 注册 闭合泛型类型代理类LuaDictionary<K,V>
-			UserData.RegisterType(proxyType);
-			// 调用 开放泛型代理注册 双向转换代理
-			RegisterGenericProxy(typeof(LuaDictionary<,>), typeof(Dictionary<,>), typeArgs);
-			Plugin.LogInfo($"[JIT泛型] 动态捕获并注册了: Dictionary<{typeArgs[0].Name}, {typeArgs[1].Name}>");
-			return UserData.Create(dict);
-		});
-	}
-
 	//代理工厂类
 	public class DynamicProxyFactory : IProxyFactory {
 		public Type ProxyType { get; }
-
 		public Type TargetType { get; }
 
 		private readonly Func<object, object> _factory;
-
 		public DynamicProxyFactory(
 			Type proxyType,
 			Type targetType,
@@ -260,5 +245,39 @@ public static class PluginRegistry {
 			return _factory(obj);
 		}
 	}
+
 }
 
+[HarmonyPatch(typeof(UserData), nameof(UserData.GetDescriptorForObject))]
+public static class MoonSharpJitGenericPatch {
+	// 过滤类型缓存
+	private static readonly ConcurrentDictionary<Type, byte> _checkedTypes = new();
+	// 泛型转换字典
+	private static readonly Dictionary<Type, Type> _genericProxyMap = new(){
+		{ typeof(List<>), typeof(LuaList<>) },
+		{ typeof(Dictionary<,>), typeof(LuaDictionary<,>) },
+	};
+	/// <summary>
+	/// 在 MoonSharp 询问“该对象是否是 UserData”的第一时间进行拦截
+	/// </summary>
+	public static void Prefix(object o) {
+		if (o == null) return;
+		Type objType = o.GetType();
+		// 类型过滤
+		if (!_checkedTypes.TryAdd(objType, 0)) return;
+		// 查看是否是 泛型
+		if (objType.IsGenericType) {
+			// 查看是否注册
+			if (UserData.GetDescriptorForType(objType, false) is ProxyUserDataDescriptor)
+				return;
+			// 获取 开放泛型
+			Type genericDef = objType.GetGenericTypeDefinition();
+			// 获取 泛型参数
+			Type[] args = objType.GetGenericArguments();
+			// 捕获 泛型匹配
+			if (_genericProxyMap.TryGetValue(genericDef, out var proxyDef)) {
+				PluginRegistry.RegisterGenericProxy(proxyDef, genericDef, args);
+			}
+		}
+	}
+}

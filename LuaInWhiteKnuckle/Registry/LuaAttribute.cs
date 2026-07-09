@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace LuaInWhiteKnuckle.Core;
+namespace LuaInWhiteKnuckle.Registry;
 
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
 public sealed class LuaApiAttribute : Attribute {
