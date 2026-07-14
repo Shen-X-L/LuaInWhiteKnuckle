@@ -13,6 +13,7 @@ using UnityEngine;
 using static BuffContainer;
 using static Damageable;
 using static GameEntity;
+using static Perk;
 using static Steamworks.InventoryItem;
 
 namespace LuaInWhiteKnuckle.Api;
@@ -28,25 +29,26 @@ public class PlayerApi {
 
 	internal static ENT_Player _player = null;
 
-	#region[玩家Entity属性API]
+	// 玩家标签
+	public ObjectTagger tagger { get => _player.gameObject.GetComponent<ObjectTagger>(); }
 
-	// 当前生命值
-	public float health { get => _player.health; set => _player.health = value; }
-	// 最大生命值
-	public float maxHealth { get => _player.maxHealth; set => _player.maxHealth = value; }
+	#region[Entity属性API]
+
 	// 火焰时间乘数
 	public float fireTimeMult { get => _player.fireTimeMult; set => _player.fireTimeMult = value; }
 	// 火焰伤害乘数
 	public float fireDamageMult { get => _player.fireDamageMult; set => _player.fireDamageMult = value; }
-
-	public ObjectTagger tagger { get => _player.gameObject.GetComponent<ObjectTagger>(); }
+	/// <summary>
+	/// 给玩家造成伤害
+	/// </summary>
+	public void Damage(DamageInfoData damage) => _player.Damage(damage.Raw);
 
 	#endregion
 
-	#region[玩家基础属性API]
+	#region[移动属性API]
 
 	// 基础移动速度
-	public float speed { get => _player.speed ; set => _player.speed = value; }
+	public float speed { get => _player.speed; set => _player.speed = value; }
 	// 冲刺速度
 	public float sprintSpeed { get => _player.sprintSpeed; set => _player.sprintSpeed = value; }
 	// 蹲伏速度
@@ -58,43 +60,162 @@ public class PlayerApi {
 	// 额外跳跃次数
 	public int extraJumps { get => _player.extraJumps; set => _player.extraJumps = value; }
 	// 临时额外跳跃次数
-	public int temporaryExtraJumpsRemaining => Patch_ENT_Player._temporaryExtraJumpsRemainingField(_player);
+	public int temporaryExtraJumpsRemaining {
+		get => Patch_ENT_Player._temporaryExtraJumpsRemainingField(_player);
+		set => Patch_ENT_Player._temporaryExtraJumpsRemainingField(_player) = value;
+	}
+	// 攀爬跳跃消耗
+	public float climbJumpDrain { get => _player.climbJumpDrain; set => _player.climbJumpDrain = value; }
+
+	#endregion
+
+	#region[生命属性API]
+
+	// 当前生命值
+	public float health { get => _player.health; set => _player.health = value; }
+	// 最大生命值
+	public float maxHealth { get => _player.maxHealth; set => _player.maxHealth = value; }
 	// 生命恢复速率
 	public float healingRate { get => _player.healingRate; set => _player.healingRate = value; }
 	// 生命恢复延迟
 	public float healDelay { get => _player.healDelay; set => _player.healDelay = value; }
-	// 攀爬跳跃消耗
-	public float climbJumpDrain { get => _player.climbJumpDrain; set => _player.climbJumpDrain = value; }
-	// 重力加速度 -9.81
-	public float gravity { get => _player.gravity; set => _player.gravity = value; }
-	// 重力倍率 1
-	public float gravityMult => Patch_ENT_Player._gravityMultField(_player);
+
+	#endregion
+
+	#region[抓握属性API]
+
+	// 耐力计时器
+	public float gripStrengthTimer {
+		get => _player.gripStrengthTimer;
+		set => _player.gripStrengthTimer = value;
+	}
 	// 交互距离
 	public float interactDistance {
 		get => _player.interactDistance;
 		set => _player.interactDistance = value;
 	}
+	// 抓取抓握点的力
+	public float propHangForce {
+		get => _player.propHangForce;
+		set => _player.propHangForce = value;
+	}
+	// 抓取宽容时间
+	public float grabForgive {
+		get => _player.grabForgive;
+		set => _player.grabForgive = value;
+	}
+	// 增加双手耐力
+	public void AddGripStrength(float amount, bool onlyToGrabbingHands = false) =>
+		_player.AddGripStrength(amount, onlyToGrabbingHands);
+	// 减少双手耐力
+	public void DamageGripStrength(float amount, bool onlyToGrabbingHands = false) =>
+		_player.DamageGripStrength(amount, onlyToGrabbingHands);
+	// 设置双手耐力
+	public void SetGripStrength(float amount, bool onlyToGrabbingHands = false) =>
+		_player.SetGripStrength(amount, onlyToGrabbingHands);
+	// 获取当前最大耐力
+	public float GetCurrentGripStrengthTimer(int id = -1) => _player.GetCurrentGripStrengthTimer(id);
+	// 获取交互距离(受增益和玩家缩放影响)
+	public float GetInteractDistance(int id = -1) => _player.GetInteractDistance(id);
+	// 获取基础交互距离(不受手部增益影响)
+	public float GetBaseInteractDistance() => _player.GetBaseInteractDistance();
 
 	#endregion
 
-	#region[玩家调试属性API]
+	#region[物理参数API]
+
+	// 重力加速度 -9.81
+	public float gravity { get => _player.gravity; set => _player.gravity = value; }
+	// 重力倍率 1
+	public float gravityMult {
+		get => Patch_ENT_Player._gravityMultField(_player);
+		set => Patch_ENT_Player._gravityMultField(_player) = value;
+	}
+	// 阻力系数
+	public float dragCoefficient { get => _player.dragCoefficient; set => _player.dragCoefficient = value; }
+	// 摩擦力乘数
+	public float frictionMultiplier {
+		get => _player.frictionMultiplier;
+		set => _player.frictionMultiplier = value;
+	}
+	// 墙壁摩擦力乘数
+	public float wallfrictionMultiplier {
+		get => _player.wallfrictionMultiplier;
+		set => _player.wallfrictionMultiplier = value;
+	}
+	// 游泳摩擦力乘数
+	public float swimFrictionMultiplier {
+		get => _player.swimFrictionMultiplier;
+		set => _player.swimFrictionMultiplier = value;
+	}
+
+	#endregion
+
+	#region[斜坡与滑动]
+
+	// 可攀爬坡度限制
+	public float slopeLimit { get => _player.slopeLimit; set => _player.slopeLimit = value; }
+	// 滑行摩擦力
+	public float slideFriction { get => _player.slideFriction; set => _player.slideFriction = value; }
+	// 滑行速度
+	public float slideSpeed { get => _player.slideSpeed; set => _player.slideSpeed = value; }
+	// 空中控制系数
+	public float airControl { get => _player.airControl; set => _player.airControl = value; }
+
+	#endregion
+
+	#region[调试属性API]
 
 	// 无碰撞模式
 	public bool noclip { get => _player.noclip; set => _player.noclip = value; }
 	// 飞行模式
 	public bool fly { get => _player.fly; set => _player.fly = value; }
 	// 强制随处抓取
-	public bool forceGrabAnywhere => Patch_ENT_Player._forceGrabAnywhereField(_player);
+	public bool forceGrabAnywhere {
+		get => Patch_ENT_Player._forceGrabAnywhereField(_player);
+		set => Patch_ENT_Player._forceGrabAnywhereField(_player) = value;
+	}
 	// 无限耐力
-	public bool infiniteStamina => Patch_ENT_Player._infiniteStaminaField(_player);
+	public bool infiniteStamina {
+		get => Patch_ENT_Player._infiniteStaminaField(_player);
+		set => Patch_ENT_Player._infiniteStaminaField(_player) = value;
+	}
 	// 上帝模式
-	public bool godmode => Patch_ENT_Player._godmodeField(_player);
+	public bool godmode {
+		get => Patch_ENT_Player._godmodeField(_player);
+		set => Patch_ENT_Player._godmodeField(_player) = value;
+	}
 	// 无限弹药
-	public bool infiniteAmmo => Patch_ENT_Player._infiniteAmmoField(_player);
+	public bool infiniteAmmo {
+		get => Patch_ENT_Player._infiniteAmmoField(_player);
+		set => Patch_ENT_Player._infiniteAmmoField(_player) = value;
+	}
+	// 无限充能
+	public bool infiniteCharge {
+		get => Patch_ENT_Player._infiniteChargeField(_player);
+		set => Patch_ENT_Player._infiniteChargeField(_player) = value;
+	}
+	#endregion
+
+	#region[Perk API]
+
+	// perk数组
+	public List<Perk> perks { get => _player.perks; }
+	// 添加perk
+	public Perk AddPerk(Perk perk, int stackAmount = 1, bool firstTime = true) => 
+		_player.AddPerk(perk, stackAmount, firstTime);
+	// 移除全部perk
+	public void RemoveAllPerks(bool forceRemoveAll = true) => _player.RemoveAllPerks(forceRemoveAll);
+	// 移除指定perk
+	public void RemovePerk(Perk perk, bool removeAll = true) => _player.RemovePerk(perk, removeAll);
+	// 通过ID移除perk
+	public void RemovePerk(string perkID, bool removeAll = true) => _player.RemovePerk(perkID, removeAll);
+	// 获取指定perk
+	public Perk GetPerk(string perkID) => _player.GetPerk(perkID);
 
 	#endregion
 
-	#region[玩家BUFF API]
+	#region[BUFF API]
 
 	/// <summary>
 	/// 快速添加一个增益到玩家身上
@@ -148,8 +269,9 @@ public class PlayerApi {
 	/// <summary>
 	/// 添加一个增益容器到玩家身上
 	/// </summary>
-	/// <param name="buffContainerData"></param>
-	public void AddBuffContainer(BuffContainerData buffContainerData) =>
+	public void AddBuffContainer(BuffContainer buffContainer) =>
+		_player.curBuffs.AddBuff(buffContainer);
+	public void AddBuffContainerData(BuffContainerData buffContainerData) =>
 		_player.curBuffs.AddBuff(buffContainerData.Raw);
 
 	/// <summary>
@@ -165,24 +287,25 @@ public class PlayerApi {
 	/// <summary>
 	/// 删除容器
 	/// </summary>
+	public void RemoveBuffContainer(BuffContainer buffContainer) =>
+		_player.curBuffs.RemoveBuffContainer(buffContainer);
 	public void RemoveBuffContainer(BuffContainerData buffContainerData) =>
 		_player.curBuffs.RemoveBuffContainer(buffContainerData.Raw);
 
-	/// <summary>
-	/// 删除容器
-	/// </summary>
-	public void RemoveBuffContainer(BuffContainer buffContainer) =>
-		_player.curBuffs.RemoveBuffContainer(buffContainer);
-
 	#endregion
 
-	#region[玩家操控API]
+	#region[操控API]
 
 	// 相机锁定
-	public bool camLocked => Patch_ENT_Player._camLockedField(_player);
+	public bool camLocked {
+		get => Patch_ENT_Player._camLockedField(_player);
+		set => Patch_ENT_Player._camLockedField(_player) = value;
+	}
 	// 移动锁定
-	public bool moveLocked => Patch_ENT_Player._moveLockedField(_player);
-
+	public bool moveLocked {
+		get => Patch_ENT_Player._moveLockedField(_player);
+		set => Patch_ENT_Player._moveLockedField(_player) = value;
+	}
 	public bool sprinting => _player.IsSprinting();
 
 	public bool crouching => _player.IsCrouching();
@@ -193,11 +316,17 @@ public class PlayerApi {
 
 	#endregion
 
-	public Vector3 vel => Patch_ENT_Player._velField(_player);
+	#region[运动学API]
 
+	// 位置向量
 	public Vector3 pos => _player.transform.position;
-
+	// 旋转四元数
 	public Quaternion rot => _player.transform.rotation;
+	// 速度向量
+	public Vector3 vel {
+		get => Patch_ENT_Player._velField(_player);
+		set => Patch_ENT_Player._velField(_player) = value;
+	}
 
 	/// <summary>
 	/// 消除速度向量中与V方向相同的分量 再施加力
@@ -212,26 +341,27 @@ public class PlayerApi {
 	public void SetDirectionalForce(float x, float y, float z) =>
 		_player.SetDirectionalForce(new Vector3(x, y, z));
 
+	#endregion
 
-	/// <summary>
-	/// 给玩家造成伤害
-	/// </summary>
-	public void Damage(DamageInfoData damage) => _player.Damage(damage.Raw);
-
+	#region[其他API]
 
 	/// <summary>
 	/// 屏幕震动
 	/// </summary>
 	public void Shake(float strength) => CL_CameraControl.Shake(strength);
+
+	#endregion
 }
 
 #endregion
 
 #region[数据类]
 
-[LuaData(typeof(HandData))]
+[LuaData(typeof(ENT_Player.Hand))]
 [MoonSharpUserData]
 public class HandData {
+	#region[基础包装]
+
 	private readonly ENT_Player.Hand _hand;
 
 	[MoonSharpHidden]
@@ -242,6 +372,8 @@ public class HandData {
 
 	[MoonSharpHidden]
 	public ENT_Player.Hand Raw => _hand;
+
+	#endregion
 
 	public HandData(int index) {
 		var hands = ENT_Player.GetPlayer().hands;
@@ -254,45 +386,27 @@ public class HandData {
 	// 手部ID(0=左手, 1=右手)
 	public readonly int id;
 
-	#region[耐力]
+	#region[耐力相关]
 
 	// 手部耐力
 	public float gripStrength { get => _hand.gripStrength; set => _hand.gripStrength = value; }
 	// 最大耐力   
 	public float maxGripStrength => _hand.GetGripStrengthMax();
+	// 添加耐力(不超过最大值)
+	public void AddGripStrength(float amount) => _hand.AddGripStrength(amount);
+	// 设置耐力(不超过最大值)
+	public void SetGripStrength(float amount) => _hand.SetGripStrength(amount);
+	// 减小耐力
+	public void DamageGripStrength(float damageAmount) => _hand.DamageGripStrength(damageAmount);
 
 	#endregion
 
-	#region[数值]
+	#region[抓握相关]
 
 	// 阻力倍数
-	public float dragMult {get => _hand.dragMult;set => _hand.dragMult = value;}
+	public float dragMult { get => _hand.dragMult; set => _hand.dragMult = value; }
 	// 抓握延迟
 	public float grabWait { get => _hand.grabWait; set => _hand.grabWait = value; }
-
-	#endregion
-
-	#region[锁定/解锁]
-
-	// 手部交互锁定
-	public bool lockHand {get => _hand.lockHand;set => _hand.lockHand = value;}
-	// 交互锁定冷却时间
-	public float cooldown {get => _hand.cooldown;set => _hand.cooldown = value;}
-	// 是否可交互
-	public bool canInteract { get => _hand.CanInteract(); set => _hand.SetCanInteract(value); }
-	// 移动锁定状态
-	public bool moveLocked { get => _hand.IsLocked(); set => _hand.SetLocked(value); }
-
-	#endregion
-
-	#region[状态确认]
-
-	// 是否 无交互 && 无物品
-	public bool IsFree() => _hand.IsFree();
-	public bool IsHolding() => _hand.IsHolding();
-	public bool IsHanging() => _hand.IsHanging();
-
-	#endregion
 
 	/// <summary>
 	/// 松开手部
@@ -307,15 +421,66 @@ public class HandData {
 	/// <param name="blend">插值混合系数</param>
 	public void MoveTo(Vector3 pos, float blend = 1f) => _hand.MoveTo(pos, blend);
 
+	/// <summary>
+	/// 手部的本地坐标
+	/// </summary>
+	public Vector3 holdPosition {
+		get => _hand.GetHoldPosition();
+		set => _hand.SetHoldPosition(value);
+	}
+
+	/// <summary>
+	/// 手部的世界坐标
+	/// </summary>
+	public Vector3 holdWorldPosition {
+		get => _hand.GetHoldWorldPosition();
+		set => _hand.SetWorldHoldPosition(value);
+	}
+
+	#endregion
+
+	#region[锁定/解锁]
+
+	// 手部交互锁定
+	public bool lockHand { get => _hand.lockHand; set => _hand.lockHand = value; }
+	// 交互锁定冷却时间
+	public float cooldown { get => _hand.cooldown; set => _hand.cooldown = value; }
+	// 是否可交互
+	public bool canInteract { get => _hand.CanInteract(); set => _hand.SetCanInteract(value); }
+	// 移动锁定状态
+	public bool moveLocked { get => _hand.IsLocked(); set => _hand.SetLocked(value); }
+
+	#endregion
+
+	#region[状态访问]
+
+	// 是否 无交互 && 无物品
+	public bool IsFree() => _hand.IsFree();
+	public bool IsHolding() => _hand.IsHolding();
+	public bool IsHanging() => _hand.IsHanging();
+
+	#endregion
+
 	#region[物品相关]
 
+	// 在手部模型处丢弃道具
 	public void DropItem() => _hand.DropItem();
+	// 丢弃道具到pos
 	public void DropItem(Vector3 pos) => _hand.DropItem(pos);
+	// 摧毁手部道具
 	public void DestroyItem() => _hand.DestroyItem();
+	// 获取手部物品
 	public HandItem GetHandItem() => _hand.GetHandItem();
 
 	#endregion
 
+	#region[动画相关]
+
+	public void ShakeHand(float amount) => _hand.ShakeHand(amount);
+
+	public void RockHand(float amount) => _hand.RockHand(amount);
+
+	#endregion
 }
 
 #endregion
@@ -333,6 +498,9 @@ public static class Patch_ENT_Player {
 		AccessTools.FieldRefAccess<ENT_Player, bool>("infiniteStamina");
 	public static readonly AccessTools.FieldRef<ENT_Player, bool> _infiniteAmmoField =
 		AccessTools.FieldRefAccess<ENT_Player, bool>("infiniteAmmo");
+	public static readonly AccessTools.FieldRef<ENT_Player, bool> _infiniteChargeField =
+		AccessTools.FieldRefAccess<ENT_Player, bool>("infiniteCharge");
+
 	public static readonly AccessTools.FieldRef<ENT_Player, bool> _moveLockedField =
 		AccessTools.FieldRefAccess<ENT_Player, bool>("moveLocked");
 	public static readonly AccessTools.FieldRef<ENT_Player, bool> _camLockedField =

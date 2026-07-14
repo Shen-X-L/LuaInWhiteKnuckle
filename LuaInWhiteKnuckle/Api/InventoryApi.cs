@@ -3,6 +3,7 @@ using LuaInWhiteKnuckle.Game;
 using LuaInWhiteKnuckle.Registry;
 using LuaInWhiteKnuckle.Runtime;
 using MoonSharp.Interpreter;
+using Newtonsoft.Json.Bson;
 using Steamworks.Ugc;
 using System;
 using System.Collections.Generic;
@@ -63,9 +64,8 @@ public class InventoryApi {
 	/// <summary>
 	/// 添加物品到背包
 	/// </summary>
-	/// <param name="item"></param>
-	/// <param name="count"></param>
-	public void AddItem(ItemData item, int count = 1) {
+	public void AddItem(ItemData itemData, int count = 1) => AddItem(itemData.Raw, count);
+	public void AddItem(Item item, int count = 1) {
 		if (item == null) return;
 		if (count <= 0) return;
 		if (_inventory == null) return;
@@ -82,6 +82,7 @@ public class InventoryApi {
 			itemObject.gameObject.SetActive(false);
 		}
 	}
+
 	/// <summary>
 	/// 添加物品到背包
 	/// </summary>
@@ -172,7 +173,8 @@ public class InventoryApi {
 
 	// 丢弃物品
 	public void DropItemIntoWorld(Item item, Vector3 pos) => _inventory.DropItemIntoWorld(item, pos);
-
+	public void DropItemIntoWorld(ItemData itemData, Vector3 pos) => _inventory.DropItemIntoWorld(itemData.Raw, pos);
+	
 	/// <summary>
 	/// 丢弃全部物品
 	/// </summary>
@@ -189,7 +191,7 @@ public class InventoryApi {
 	/// </summary>
 	public List<Item> GetHandItems() {
 		var itemApis = new List<Item>();
-		foreach (var item in _inventory?.itemHands) {
+		foreach (var item in _inventory.itemHands) {
 			itemApis.Add(item.currentItem);
 		}
 		return itemApis;
@@ -216,11 +218,11 @@ public class InventoryApi {
 	}
 
 	// 从手中删除物品
-	public void RemoveHandItem(int handIndex) => _inventory?.DestroyItemInHand(handIndex);
+	public void RemoveHandItem(int handIndex) => _inventory.DestroyItemInHand(handIndex);
 
 	// 将手中物品放入背包.
 	public void MoveItemFromHandToInventory(int handID) =>
-		_inventory?.AddItemToInventoryScreen(
+		_inventory.AddItemToInventoryScreen(
 			new Vector3(0f, 0f, 1f) + UnityEngine.Random.insideUnitSphere * 0.01f,
 			_inventory.itemHands[handID].currentItem,
 			localSpacePosition: true
@@ -238,6 +240,7 @@ public class InventoryApi {
 			hands[handIndex].DropItem();
 	}
 
+	public void TryPocketItemInHand(int handIndex)=> _inventory.TryPocketItemInHand(handIndex);
 	#endregion
 
 	#region[口袋物品API]
@@ -390,37 +393,37 @@ public class InventoryApi {
 	#region[背包属性API]
 
 	// 小袋数量
-	public int pouchCount { get => _inventory?.pouchCount ?? 0; }
+	public int pouchCount { get => _inventory.pouchCount; }
 	// 小袋容量
 	public int pouchMaxCapacity {
-		get => _inventory == null ? 0 : _pouchMaxCapacityRef(_inventory);
-		set { if (_inventory != null) _pouchMaxCapacityRef(_inventory) = value; }
+		get => _pouchMaxCapacityRef(_inventory);
+		set => _pouchMaxCapacityRef(_inventory) = value;
 	}
 	// 当前负重系数
 	public float encumberance {
-		get => _inventory?.encumberance ?? 0;
-		set => _inventory?.encumberance = value;
+		get => _inventory.encumberance;
+		set => _inventory.encumberance = value;
 	}
 	// 最大超重物品数
 	public int maxEncumberedItems {
-		get => _inventory?.maxEncumberedItems ?? 0;
-		set => _inventory?.maxEncumberedItems = value;
+		get => _inventory.maxEncumberedItems;
+		set => _inventory.maxEncumberedItems = value;
 	}
 	// 无惩罚物品数
 	public int unencumberedItems {
-		get => _inventory?.unencumberedItems ?? 0;
-		set => _inventory?.unencumberedItems = value;
+		get => _inventory.unencumberedItems;
+		set => _inventory.unencumberedItems = value;
 	}
 
 	// 额外小袋列表
-	public List<Pouch> extraPouches => _inventory?.extraPouches ?? new List<Pouch>();
+	public List<Pouch> extraPouches => _inventory.extraPouches ?? new List<Pouch>();
 
 	// 添加一个小袋
-	public void AddExtraPouch() => _inventory?.AddExtraPouch();
+	public void AddExtraPouch() => _inventory.AddExtraPouch();
 
 
 	// 移除一个小袋
-	public void RemoveExtraPouch() => _inventory?.RemoveExtraPouch();
+	public void RemoveExtraPouch() => _inventory.RemoveExtraPouch();
 
 
 	#endregion

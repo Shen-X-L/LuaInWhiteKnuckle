@@ -77,6 +77,10 @@ public class Plugin : BaseUnityPlugin {
 			// 每次重开刷新环境 && 初始化
 			else if (NeedResetSendBox && safeLuaSandbox.IsInitialized)
 				safeLuaSandbox.ResetSandbox();
+			if (!NeedResetSendBox) {
+				CommandConsole.cheatsEnabled = true;
+				CommandConsole.hasCheated = true;
+			}
 			gameWatcherManager.enabled = true;
 		} else {
 			Logger.LogInfo($"[场景监听]检测到退出主游戏场景 '{scene.name}'，开始强制销毁并清空 Lua 沙箱...");

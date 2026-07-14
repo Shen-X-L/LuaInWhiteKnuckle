@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
+using HarmonyLib;
 
 namespace LuaInWhiteKnuckle.Api;
 
@@ -39,6 +40,8 @@ public class ItemApi {
 		return item != null;
 	}
 }
+
+#region[数据类]
 
 [LuaData(typeof(Item))]
 [MoonSharpUserData]
@@ -118,4 +121,38 @@ public class ItemData {
 		get => _item.bagRotation;
 		set => _item.bagRotation = value;
 	}
+	// 是否在背包/手中
+	public bool inInventory => _item.inventory != null;
+	// 是否在背包中
+	public bool inBag => _item.InBag();
+	// 是否在手中
+	public bool inhand => Patch_Item._handItemField(_item) != null;
+	// 销毁
+	public void Destroy(bool clearFromInventory = true) => _item.Destroy(clearFromInventory);
 }
+
+[LuaData(typeof(HandItem))]
+[MoonSharpUserData]
+public class HandItemData{
+	private readonly HandItem _handItem;
+
+	[MoonSharpHidden]
+	public HandItemData(HandItem handItem) {
+		_handItem = handItem;
+	}
+
+	[MoonSharpHidden]
+	public HandItem Raw => _handItem;
+}
+
+#endregion
+
+#region[监听器/补丁类]
+
+[HarmonyPatch(typeof(Item))]
+public static class Patch_Item {
+	public static readonly AccessTools.FieldRef<Item, HandItem> _handItemField =
+		AccessTools.FieldRefAccess<Item, HandItem>("handItem");
+}
+
+#endregion
