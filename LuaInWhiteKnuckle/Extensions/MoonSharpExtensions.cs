@@ -11,7 +11,7 @@ namespace LuaInWhiteKnuckle.Extensions;
 public static class MoonSharpExtensions {
 
 	/// <summary>
-	/// 外部调用的主入口 - 性能提升 10-50 倍，运行时变为 0 GC Alloc
+	/// 外部调用的主入口 - 性能提升 10-50 倍, 运行时变为 0 GC Alloc
 	/// </summary>
 	public static T ToClr<T>(this DynValue value) {
 		// 运行时只需要一步：直接从强类型缓存中读取编译好的委托执行
@@ -24,7 +24,7 @@ public static class MoonSharpExtensions {
 	public static TElement ConvertElement<TElement>(DynValue value, int index) {
 		DynValue item = GetTupleElement(value, index);
 		if (item == null || item.IsNil()) {
-			return default; // 自动返回值类型的 default 或 null，无需通过 Type 判断
+			return default; // 自动返回值类型的 default 或 null, 无需通过 Type 判断
 		}
 		return item.ToObject<TElement>();
 	}
@@ -38,7 +38,7 @@ public static class MoonSharpExtensions {
 	}
 
 	/// <summary>
-	/// 核心黑魔法：利用强类型静态构造函数，为每种 T 只编译一次
+	/// 利用强类型静态构造函数, 为每种 T 只编译一次
 	/// </summary>
 	private static class TupleConverterCache<T> {
 		public static readonly Func<DynValue, T> Convert;
@@ -46,7 +46,7 @@ public static class MoonSharpExtensions {
 		static TupleConverterCache() {
 			Type target = typeof(T);
 
-			// 1. 如果不是泛型，或者不是 ValueTuple，直接走原生包装
+			// 1. 如果不是泛型, 或者不是 ValueTuple, 直接走原生包装
 			if (!target.IsGenericType) {
 				Convert = val => val.ToObject<T>();
 				return;
@@ -62,7 +62,7 @@ public static class MoonSharpExtensions {
 				Type[] args = target.GetGenericArguments();
 				ParameterExpression paramExpr = Expression.Parameter(typeof(DynValue), "value");
 
-				// 拿到当前元组特有的强类型构造函数，例如 ValueTuple<bool, string>(bool, string)
+				// 拿到当前元组特有的强类型构造函数, 例如 ValueTuple<bool, string>(bool, string)
 				ConstructorInfo ctor = target.GetConstructor(args);
 				Expression[] argExprs = new Expression[args.Length];
 

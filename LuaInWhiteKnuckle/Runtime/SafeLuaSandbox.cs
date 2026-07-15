@@ -18,7 +18,7 @@ public class SafeLuaSandbox {
 	public void InitSandbox() {
 		if (_env != null)
 			CloseSandbox();
-		// 强制采用硬沙箱预设，仅保留纯计算模块，额外开放一个安全的时间库
+		// 强制采用硬沙箱预设, 仅保留纯计算模块, 额外开放一个安全的时间库
 		_env = new Script(CoreModules.Preset_HardSandbox | CoreModules.OS_Time);
 		// 限制执行次数
 		_env.Options.TailCallOptimizationThreshold = 10000;
@@ -60,7 +60,7 @@ public class SafeLuaSandbox {
 		Api = null;
 		_env = null;
 
-		// 提示: 此时这个 Lua 虚拟机由于在 C# 端没有任何常驻对象引用它了，
+		// 提示: 此时这个 Lua 虚拟机由于在 C# 端没有任何常驻对象引用它了, 
 		Plugin.Logger.LogInfo("[LuaInWK] Sandbox Closed");
 		IsInitialized = false;
 	}

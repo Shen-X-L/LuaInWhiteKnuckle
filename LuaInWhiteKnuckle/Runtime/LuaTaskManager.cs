@@ -1,4 +1,5 @@
-﻿using LuaInWhiteKnuckle.Game;
+﻿using LuaInWhiteKnuckle.Extensions;
+using LuaInWhiteKnuckle.Game;
 using MoonSharp.Interpreter;
 using System.Collections.Generic;
 using UnityEngine;
@@ -15,10 +16,10 @@ public class LuaTask {
 }
 
 public class LuaTaskManager : MonoBehaviour {
-	// 全局最大允许的并发 Lua 任务数。超过此数直接熔断拒绝。
+	// 全局最大允许的并发 Lua 任务数超过此数直接熔断拒绝
 	private const int MAX_CONCURRENT_TASKS = 500;
 
-	// 简单脚本的指令阈值，压低到 2000 足以完成距离计算和物品发放
+	// 简单脚本的指令阈值, 压低到 2000 足以完成距离计算和物品发放
 	private const int MAX_INSTRUCTIONS_PER_FRAME = 2000;
 
 	// 任务列表和死任务列表
@@ -30,7 +31,7 @@ public class LuaTaskManager : MonoBehaviour {
 	public bool AddTask(Coroutine luaCoroutine, string debugName, params object[] args) {
 		// 并发防御
 		if (_tasks.Count >= MAX_CONCURRENT_TASKS) {
-			Plugin.Logger.LogWarning($"[沙箱限流] 当前 Lua 任务数已达上限 ({MAX_CONCURRENT_TASKS})，已拒绝加载新脚本: {debugName}");
+			Plugin.Logger.LogWarning($"[沙箱限流] 当前 Lua 任务数已达上限 ({MAX_CONCURRENT_TASKS}), 已拒绝加载新脚本: {debugName}");
 			return false;
 		}
 
@@ -54,28 +55,30 @@ public class LuaTaskManager : MonoBehaviour {
 	/// 终止特定名字的Lua任务
 	/// </summary>
 	/// <param name="debugName"></param>
-	public void KillTask(string debugName) {
+	private void KillTaskImpl(string debugName) {
 		if (_tasks.Remove(debugName, out var task)) {
 			Plugin.Logger.LogInfo($"[脚本管理] 已手动终止脚本: {debugName}");
 		}
 	}
+
+	public static void KillTask(string debugName) => Plugin.luaTaskManager.KillTaskImpl(debugName);
 
 	/// <summary>
 	/// 执行指定的 Lua 函数
 	/// </summary>
 	/// <param name="luaCode"></param>
 	/// <param name="debugName"></param>
-	public void Execute(string luaCode, string debugName) {
+	private void ExecuteImpl(string luaCode, string debugName) {
 		try {
 			var script = Plugin.safeLuaSandbox.GetScript();
-			// 1. 在沙箱环境中编译代码，包装在函数内以支持作用域隔离
+			// 在沙箱环境中编译代码, 包装在函数内以支持作用域隔离
 			DynValue chunk = script.DoString($"return function()\n{luaCode}\nend");
 
 			if (chunk.Type == DataType.Function) {
-				// 2. 创建协程
+				// 创建协程
 				Coroutine luaCoroutine = script.CreateCoroutine(chunk).Coroutine;
 
-				// 3. 加入管理队列
+				// 加入管理队列
 				AddTask(luaCoroutine, debugName);
 			}
 		} catch (SyntaxErrorException) {
@@ -85,13 +88,16 @@ public class LuaTaskManager : MonoBehaviour {
 		}
 	}
 
+	public static void Execute(string luaCode, string debugName) =>
+		Plugin.luaTaskManager.ExecuteImpl(luaCode, debugName);
+
 	/// <summary>
 	/// 执行Lua的回调函数
 	/// </summary>
 	/// <param name="callback"></param>
 	/// <param name="debugName"></param>
 	/// <param name="args"></param>
-	public void Execute(Closure callback, string debugName, params object[] args) {
+	private void ExecuteImpl(Closure callback, string debugName, params object[] args) {
 		if (callback == null) return;
 		if (callback.OwnerScript == null) {
 			Plugin.Logger.LogError($"[任务执行错误] 无法加载脚本 {debugName}: 回调脚本环境为空");
@@ -102,18 +108,21 @@ public class LuaTaskManager : MonoBehaviour {
 		AddTask(coroutine, debugName, args);
 	}
 
+	public static void Execute(Closure callback, string debugName, params object[] args) =>
+		Plugin.luaTaskManager.ExecuteImpl(callback, debugName, args);
+
 	/// <summary>
-	/// 同步执行 Lua Closure 并立即返回结果。专供 Hook 拦截使用。
-	/// 带有严格的防死循环保护，一旦触发死循环将被强制中断。
+	/// 同步执行 Lua Closure 并立即返回结果专供 Hook 拦截使用
+	/// 带有严格的防死循环保护, 一旦触发死循环将被强制中断
 	/// </summary>
-	public DynValue InvokeSync(Closure callback, string debugName, params object[] args) {
+	private DynValue InvokeSyncImpl(Closure callback, string debugName, params object[] args) {
 		if (callback == null || callback.OwnerScript == null) {
 			Plugin.Logger.LogError($"[Hook执行错误] 无法执行 Hook {debugName}: 回调为空");
 			return DynValue.Nil;
 		}
 
 		try {
-			// 将回调包装为一个独立的协程，仅仅是为了施加指令数限制
+			// 将回调包装为一个独立的协程, 仅仅是为了施加指令数限制
 			Coroutine coroutine = callback.OwnerScript.CreateCoroutine(callback).Coroutine;
 
 			coroutine.AutoYieldCounter = MAX_INSTRUCTIONS_PER_FRAME;
@@ -122,9 +131,9 @@ public class LuaTaskManager : MonoBehaviour {
 			DynValue result = coroutine.Resume(args);
 
 			// 检查是否因为超出了指令限制而被强制挂起
-			// (注意: Hook 中不应该使用主动的 coroutine.yield，因为我们需要同步结果)
+			// (注意: Hook 中不应该使用主动的 coroutine.yield, 因为我们需要同步结果)
 			if (result.Type == DataType.YieldRequest || coroutine.State == CoroutineState.Suspended) {
-				Plugin.Logger.LogError($"[Hook安全拦截] Hook '{debugName}' 试图执行异步挂起或存在死循环指令超限，已被强制熔断！");
+				Plugin.Logger.LogError($"[Hook安全拦截] Hook '{debugName}' 试图执行异步挂起或存在死循环指令超限, 已被强制熔断！");
 				// 视情况可以在这里调用 safeLuaSandbox.InitSandbox() 重置环境
 				return DynValue.Nil;
 			}
@@ -139,6 +148,61 @@ public class LuaTaskManager : MonoBehaviour {
 			return DynValue.Nil;
 		}
 	}
+
+	public static DynValue InvokeSync(Closure callback, string debugName, params object[] args) =>
+		Plugin.luaTaskManager.InvokeSyncImpl(callback, debugName, args);
+
+
+	/// <summary>
+	/// 同步执行 通过泛型包装返回值
+	/// </summary>
+	private T InvokeSyncImpl<T>(Closure callback, string debugName, params object[] args) {
+		DynValue value = InvokeSyncImpl(callback, debugName, args);
+		return value.ToClr<T>();
+	}
+
+	public static T InvokeSync<T>(Closure callback, string debugName, params object[] args)=>
+		Plugin.luaTaskManager.InvokeSyncImpl<T>(callback, debugName, args);
+
+	/// <summary>
+	/// 同步执行 返回Lua脚本是否被正常执行
+	/// </summary>
+	private bool InvokeImpl(Closure callback, string debugName, params object[] args) {
+		if (callback == null || callback.OwnerScript == null) {
+			Plugin.Logger.LogError($"[Hook执行错误] 无法执行 Hook {debugName}: 回调为空");
+			return false;
+		}
+
+		try {
+			// 将回调包装为一个独立的协程, 仅仅是为了施加指令数限制
+			Coroutine coroutine = callback.OwnerScript.CreateCoroutine(callback).Coroutine;
+
+			coroutine.AutoYieldCounter = MAX_INSTRUCTIONS_PER_FRAME;
+
+			// 立即同步恢复执行
+			DynValue result = coroutine.Resume(args);
+
+			// 检查是否因为超出了指令限制而被强制挂起
+			// (注意: Hook 中不应该使用主动的 coroutine.yield, 因为我们需要同步结果)
+			if (result.Type == DataType.YieldRequest || coroutine.State == CoroutineState.Suspended) {
+				Plugin.Logger.LogError($"[Hook安全拦截] Hook '{debugName}' 试图执行异步挂起或存在死循环指令超限, 已被强制熔断！");
+				// 视情况可以在这里调用 safeLuaSandbox.InitSandbox() 重置环境
+				return false;
+			}
+
+			return true;
+
+		} catch (ScriptRuntimeException ex) {
+			Plugin.Logger.LogError($"[Hook运行时错误] {debugName}: {ex.DecoratedMessage}");
+			return false;
+		} catch (System.Exception ex) {
+			Plugin.Logger.LogError($"[Hook系统错误] 驱动 {debugName} 时发生异常: {ex.Message}");
+			return false;
+		}
+	}
+
+	public static bool Invoke(Closure callback, string debugName, params object[] args) =>
+		Plugin.luaTaskManager.InvokeImpl(callback, debugName, args);
 
 	private void Update() {
 		if (_tasks.Count == 0) return;

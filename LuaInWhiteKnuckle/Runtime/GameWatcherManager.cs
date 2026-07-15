@@ -89,7 +89,7 @@ public interface IWatcher {
 	bool NeedEnable => EnableCount > 0;
 	// 事件名称
 	IReadOnlyList<string> Events { get; }
-	// 轮询间隔，单位秒
+	// 轮询间隔, 单位秒
 	float Interval { get; }
 	// 下次轮询时间
 	float NextUpdateTime { get; set; }

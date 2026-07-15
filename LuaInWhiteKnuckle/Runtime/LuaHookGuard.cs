@@ -36,7 +36,7 @@ public static class LuaHookGuard {
 	}
 
 	/// <summary>
-	/// 尝试进入一个 Hook,配合 using 使用。
+	/// 尝试进入一个 Hook,配合 using 使用
 	/// </summary>
 	public static GuardHandle Enter(string hookName) {
 		if (_activeHooks == null) {

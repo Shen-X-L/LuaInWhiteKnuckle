@@ -63,7 +63,7 @@ public class Plugin : BaseUnityPlugin {
 	/// </summary>
 	private static void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
 		if (scene.name == "Game-Main" || scene.name == "Playground") {
-			Logger.LogInfo($"[场景监听]检测到进入主游戏场景 '{scene.name}'，开始初始化全新的 Lua 沙箱...");
+			Logger.LogInfo($"[场景监听]检测到进入主游戏场景 '{scene.name}', 开始初始化全新的 Lua 沙箱...");
 			if (!_isInitialized) {
 				_isInitialized = true;
 				GameObject singleton = new GameObject("LuaRootObject");
@@ -83,7 +83,7 @@ public class Plugin : BaseUnityPlugin {
 			}
 			gameWatcherManager.enabled = true;
 		} else {
-			Logger.LogInfo($"[场景监听]检测到退出主游戏场景 '{scene.name}'，开始强制销毁并清空 Lua 沙箱...");
+			Logger.LogInfo($"[场景监听]检测到退出主游戏场景 '{scene.name}', 开始强制销毁并清空 Lua 沙箱...");
 			safeLuaSandbox.CloseSandbox();
 			if (_isInitialized){
 				gameWatcherManager.enabled = false;

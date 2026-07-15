@@ -162,7 +162,7 @@ public static class PluginRegistry {
 
 	/// <summary>
 	/// 注册无法编辑源码的原版游戏类型 (如简单的结构体或数据类)
-	/// 这将自动注册 UserData，并在 Lua 环境中生成静态包装表和构造函数
+	/// 这将自动注册 UserData, 并在 Lua 环境中生成静态包装表和构造函数
 	/// </summary>
 	public static void RegisterGameType<T>() {
 		Type type = typeof(T);
@@ -171,14 +171,14 @@ public static class PluginRegistry {
 		UserData.RegisterType<T>();
 
 		// 塞入你现有的静态类型集合中
-		// 这样在 Build(script) 时，它会自动享受你的 RegisterStatic 元表待遇
+		// 这样在 Build(script) 时, 它会自动享受你的 RegisterStatic 元表待遇
 		_userDataType.Add(type);
 
 		Plugin.LogInfo($"[LuaInWK] 注册原版游戏类型: {type.Name}");
 	}
 
 	/// <summary>
-	/// 非泛型版本，方便反射调用
+	/// 非泛型版本, 方便反射调用
 	/// </summary>
 	public static void RegisterGameType(Type type) {
 		UserData.RegisterType(type);

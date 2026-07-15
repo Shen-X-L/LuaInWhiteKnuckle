@@ -86,7 +86,7 @@ public class ModEventBus {
 			if (listeners[i].DebugName == debugName) {
 				listeners.RemoveAt(i);
 
-				// 没有监听器了，顺便删除事件
+				// 没有监听器了, 顺便删除事件
 				if (listeners.Count == 0)
 					_listeners.Remove(eventName);
 				Plugin.gameWatcherManager.Enable(eventName, false);
@@ -98,7 +98,7 @@ public class ModEventBus {
 	}
 
 	/// <summary>
-	/// 热重载 Lua 脚本前，必须调用此方法彻底释放引用
+	/// 热重载 Lua 脚本前, 必须调用此方法彻底释放引用
 	/// </summary>
 	public void ClearAllListeners() {
 		_listeners.Clear();
@@ -122,7 +122,7 @@ public class ModEventBus {
 		if (!_listeners.TryGetValue(eventName, out var listeners))
 			return;
 
-		// 倒序遍历，防止执行过程中注销监听
+		// 倒序遍历, 防止执行过程中注销监听
 		for (int i = listeners.Count - 1; i >= 0; i--) {
 			var listener = listeners[i];
 
@@ -130,7 +130,7 @@ public class ModEventBus {
 				listeners.RemoveAt(i);
 				continue;
 			}
-			Plugin.luaTaskManager.Execute(listener.Callback, listener.DebugName, args);
+			LuaTaskManager.Execute(listener.Callback, listener.DebugName, args);
 		}
 
 		// 清理空事件
@@ -164,7 +164,7 @@ public class ModHookBus {
 	}
 
 	/// <summary>
-	/// 热重载 Lua 脚本前，必须调用此方法彻底释放引用
+	/// 热重载 Lua 脚本前, 必须调用此方法彻底释放引用
 	/// </summary>
 	public void ClearAllHook() {
 		_hooks.Clear();
@@ -185,10 +185,10 @@ public class ModHookBus {
 		if (!_hooks.TryGetValue(hookName, out var hook))
 			return default;
 
-		// 调用 TaskManager 的同步安全执行方法，而不是直接 Call
-		DynValue result = Plugin.luaTaskManager.InvokeSync(hook.Callback, hook.Id, args);
+		// 调用 TaskManager 的同步安全执行方法, 而不是直接 Call
+		DynValue result = LuaTaskManager.InvokeSync(hook.Callback, hook.Id, args);
 
-		// 如果执行失败、被熔断，或者 Lua 显式返回了 nil，则返回默认值
+		// 如果执行失败、被熔断, 或者 Lua 显式返回了 nil, 则返回默认值
 		if (result == null || result.IsNil()) 
 			return default;
 		
@@ -196,7 +196,7 @@ public class ModHookBus {
 			// 将 Lua 的返回值安全地转换为 C# 期望的类型
 			return result.ToClr<T>();
 		} catch (Exception ex) {
-			Plugin.Logger.LogError($"[Hook返回值转换错误] Hook '{hook.Id}' 返回了意外的类型，无法转换为 {typeof(T).Name}: {ex.Message}");
+			Plugin.Logger.LogError($"[Hook返回值转换错误] Hook '{hook.Id}' 返回了意外的类型, 无法转换为 {typeof(T).Name}: {ex.Message}");
 			return default;
 		}
 	}
@@ -266,7 +266,7 @@ public class TimeApi {
 	/// <summary>
 	/// 自游戏启动以来经过的真实时间 (秒)
 	/// <para/>
-	/// 与场景切换无关，不受 <see cref="timeScale"/> 影响
+	/// 与场景切换无关, 不受 <see cref="timeScale"/> 影响
 	/// <para/>
 	/// 适合作为全局计时器或性能统计使用
 	/// </summary>

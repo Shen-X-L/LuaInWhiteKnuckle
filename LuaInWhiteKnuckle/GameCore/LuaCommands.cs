@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using LuaInWhiteKnuckle.Runtime;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -18,16 +19,16 @@ public class LuaCommands {
 	}
 
 	public static void ExecuteLuaCommand(string[] luaCode) {
-		Plugin.luaTaskManager.Execute(string.Join(" ", luaCode[1..]), luaCode[0]);
+		LuaTaskManager.Execute(string.Join(" ", luaCode[1..]), luaCode[0]);
 	}
 
 	public static void ExecuteLuaFileCommand(string[] luaFilePath) {
 		string luaScript = Plugin.luaFileManager.ReadLuaFile(string.Join(" ", luaFilePath));
-		Plugin.luaTaskManager.Execute(luaScript, luaFilePath[0]);
+		LuaTaskManager.Execute(luaScript, luaFilePath[0]);
 	}
 
 	public static void KillLuaTaskCommand(string[] luaTaskName) {
-		Plugin.luaTaskManager.KillTask(string.Join(" ", luaTaskName[1..]));
+		LuaTaskManager.KillTask(string.Join(" ", luaTaskName[1..]));
 	}
 }
 

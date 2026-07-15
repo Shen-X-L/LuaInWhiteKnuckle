@@ -1,9 +1,12 @@
 ﻿using LuaInWhiteKnuckle.Api;
+using LuaInWhiteKnuckle.Runtime;
 using MoonSharp.Interpreter;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Unity.VisualScripting;
 using UnityEngine;
+using static Steamworks.InventoryItem;
 
 namespace LuaInWhiteKnuckle.Game;
 
@@ -22,6 +25,8 @@ public class PerkModule_Lua : PerkModule {
 	private Closure _getCounterString;// 获取计数器文本 (显示在 Perk 图标下方)
 	private Closure _getStatBuff;// 获取指定键的统计 Buff 值
 	private Closure _getDescriptionFromKey;// 根据键名获取描述文本
+
+	private bool _isBroken = false;
 
 	/// <summary>
 	/// 通过 Lua 传入的表, 实例化一个 C# PerkModule
@@ -57,7 +62,7 @@ public class PerkModule_Lua : PerkModule {
 			_update = updateFunc.Function;
 			var tickData = _luaModuleTable.Get("tick");
 			_tick = tickData.Type == DataType.Number
-				? Math.Max(tickData.ToObject<float>(), 0.2f)
+				? Math.Max(tickData.ToObject<float>(), 0.05f)
 				: 0.2f;
 			_time = Time.time;
 		}
@@ -97,7 +102,8 @@ public class PerkModule_Lua : PerkModule {
 	/// <param name="firstTime">是否首次初始化</param>
 	public override void Initialize(Perk p, bool firstTime) {
 		base.Initialize(p, firstTime);
-		_initialize?.Call(p, firstTime);
+		if (_isBroken || _initialize == null) return;
+		LuaTaskManager.Execute(_initialize, $"{name}_initialize", p, firstTime);
 	}
 
 	/// <summary>
@@ -105,8 +111,10 @@ public class PerkModule_Lua : PerkModule {
 	/// </summary>
 	/// <param name="amount">增加的堆叠数量</param>
 	/// <param name="firstTime">是否首次添加</param>
-	public override void AddModule(int amount = 1, bool firstTime = true) =>
-		_addModule?.Call(amount, firstTime);
+	public override void AddModule(int amount = 1, bool firstTime = true){
+		if (_isBroken || _addModule == null) return;
+		LuaTaskManager.Execute(_addModule, $"{name}_addModule", amount, firstTime);
+	}
 	
 
 	/// <summary>
@@ -114,10 +122,13 @@ public class PerkModule_Lua : PerkModule {
 	/// </summary>
 	public override void Update() {
 		// 没有更新函数
-		if (_update == null) return;
+		if (_isBroken || _update == null) return;
 		// 未到触发时间
 		if (_time > Time.time) return;
-		_update.Call();
+		_isBroken = !LuaTaskManager.Invoke(_update, $"{name}_update");
+		if (_isBroken) {
+			Plugin.LogDebug($"[LuaInWK] PerkModule_Lua.Update: {name} 执行错误,以关闭全部模块");
+		}
 		// 设置新触发时间
 		_time = Time.time + _tick;
 
@@ -126,7 +137,10 @@ public class PerkModule_Lua : PerkModule {
 	/// <summary>
 	/// Perk 销毁时调用.
 	/// </summary>
-	public override void OnDestroy(Perk p) => _onDestroy?.Call(p);
+	public override void OnDestroy(Perk p) {
+		if (_isBroken || _onDestroy == null) return;
+		LuaTaskManager.Execute(_onDestroy, $"{name}_onDestroy", p);
+	}
 
 	#endregion
 
@@ -137,9 +151,8 @@ public class PerkModule_Lua : PerkModule {
 	/// </summary>
 	/// <returns>计数器字符串, 默认返回空字符串</returns>
 	public override string GetCounterString() {
-		if (_getCounterString == null) return "";
-		var counter = _getCounterString.Call();
-		return counter.ToString();
+		if (_isBroken || _getCounterString == null) return "";
+		return LuaTaskManager.InvokeSync<string>(_getCounterString, $"{name}_getCounterString");
 	}
 
 	/// <summary>
@@ -149,9 +162,8 @@ public class PerkModule_Lua : PerkModule {
 	/// <param name="total">是否计算总计值</param>
 	/// <returns>统计值, 默认返回 NaN (表示未找到)</returns>
 	public override float GetStatBuff(string key, bool total = false) {
-		if (_getStatBuff == null) return float.NaN;
-		var stat = _getStatBuff.Call(key,total);
-		return stat.ToObject<float>();
+		if (_isBroken || _getStatBuff == null) return float.NaN;
+		return LuaTaskManager.InvokeSync<float>(_getStatBuff, $"{name}_getStatBuff", key, total);
 	}
 
 	/// <summary>
@@ -160,9 +172,11 @@ public class PerkModule_Lua : PerkModule {
 	/// <param name="key">描述键名</param>
 	/// <returns>描述文本, 默认返回空字符串</returns>
 	public override string GetDescriptionFromKey(string key) {
-		if (_getDescriptionFromKey == null) return "";
-		var description = _getDescriptionFromKey.Call(key);
-		return description.ToString();
+		if (_isBroken || _getDescriptionFromKey == null) return ""; 
+		return LuaTaskManager.InvokeSync<string>(
+			_getDescriptionFromKey, 
+			$"{name}_getDescriptionFromKey", 
+			key);
 	}
 
 	#endregion

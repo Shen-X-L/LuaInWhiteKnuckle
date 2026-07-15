@@ -156,11 +156,11 @@ public class InventoryApi {
 				case 3: y--; break;   // 下
 			}
 			remaining--;
-			// 当前方向走完，切换方向
+			// 当前方向走完, 切换方向
 			if (remaining == 0) {
 				dir = (dir + 1) & 0b11;       // 下一方向
 				stepCounter++;
-				// 每两次同长度走完后，步长+1
+				// 每两次同长度走完后, 步长+1
 				if (stepCounter == 2) {
 					stepCounter = 0;
 					stepLength++;
@@ -506,19 +506,19 @@ public class InventoryMonitor : IWatcher {
 		foreach (var kvp in _currentItems) {
 			if (_lastItems.TryGetValue(kvp.Key, out int last)) {
 				int delta = kvp.Value - last;
-				// 如果当前帧的物品数量大于上一帧的物品数量，则触发OnInventoryAdd事件
+				// 如果当前帧的物品数量大于上一帧的物品数量, 则触发OnInventoryAdd事件
 				if (delta > 0)
 					ModEventBus.TriggerEvent("OnInventoryAdd", kvp.Key, delta, kvp.Value);
-				// 如果当前帧的物品数量小于上一帧的物品数量，则触发OnInventoryRemove事件
+				// 如果当前帧的物品数量小于上一帧的物品数量, 则触发OnInventoryRemove事件
 				else if (delta < 0)
 					ModEventBus.TriggerEvent("OnInventoryRemove", kvp.Key, -delta, kvp.Value);
 			} else {
-				// 如果上一帧没有该物品，则触发OnInventoryAdd事件
+				// 如果上一帧没有该物品, 则触发OnInventoryAdd事件
 				ModEventBus.TriggerEvent("OnInventoryAdd", kvp.Key, kvp.Value, kvp.Value);
 			}
 		}
 		foreach (var kvp in _lastItems) {
-			// 如果上一帧的物品数量大于当前帧的物品数量，并且当前帧没有该物品，则触发OnInventoryRemove事件
+			// 如果上一帧的物品数量大于当前帧的物品数量, 并且当前帧没有该物品, 则触发OnInventoryRemove事件
 			if (!_currentItems.ContainsKey(kvp.Key))
 				ModEventBus.TriggerEvent("OnInventoryRemove", kvp.Key, kvp.Value, 0);
 		}
@@ -613,14 +613,14 @@ public class Patch_Inventory {
 					yield return new CodeInstruction(OpCodes.Add); // 加法
 					yield return new CodeInstruction(OpCodes.Stfld, AccessTools.Field(typeof(Inventory), "pouchCount")); // 存回 pouchCount
 
-					// 最后，补回原本紧跟在 bagHandler 前面的那句 ldarg.0 (因为我们从方法开头一直丢弃到了现在的 inst)
+					// 最后, 补回原本紧跟在 bagHandler 前面的那句 ldarg.0 (因为我们从方法开头一直丢弃到了现在的 inst)
 					yield return new CodeInstruction(OpCodes.Ldarg_0);
-					// 产出当前的 ldfld bagHandler，原版流程继续
+					// 产出当前的 ldfld bagHandler, 原版流程继续
 					yield return inst;
 				}
-				// 如果还没找到锚点，什么都不 yield，这就实现了物理意义上的“直接跳过执行”
+				// 如果还没找到锚点, 什么都不 yield, 这就实现了物理意义上的“直接跳过执行”
 			} else {
-				// 找到锚点之后的所有后续动画和UI刷新指令，正常放行
+				// 找到锚点之后的所有后续动画和UI刷新指令, 正常放行
 				yield return inst;
 			}
 		}

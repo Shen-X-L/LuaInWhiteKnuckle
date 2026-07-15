@@ -1,4 +1,4 @@
-﻿using LuaInWhiteKnuckle.Other;
+﻿using LuaInWhiteKnuckle.Game;
 using LuaInWhiteKnuckle.Registry;
 using MoonSharp.Interpreter;
 using System;
@@ -10,6 +10,7 @@ using static Perk;
 namespace LuaInWhiteKnuckle.Api;
 
 #region[API类]
+
 [LuaApi("Perk")]
 [MoonSharpUserData]
 public class PerkApi {
