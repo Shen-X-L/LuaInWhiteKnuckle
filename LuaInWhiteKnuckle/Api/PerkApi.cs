@@ -1,4 +1,5 @@
-﻿using LuaInWhiteKnuckle.Registry;
+﻿using LuaInWhiteKnuckle.Other;
+using LuaInWhiteKnuckle.Registry;
 using MoonSharp.Interpreter;
 using System;
 using System.Collections.Generic;
@@ -37,6 +38,7 @@ public class PerkApi {
 
 		// 初始化
 		perk.id = id;
+		perk.name = id;
 		perk.title = title;
 		perk.description = description;
 		perk.flavorText = "LuaInWK Create Perk";
@@ -85,6 +87,46 @@ public class PerkApi {
 			return perk;
 		return CL_AssetManager.GetPerkAsset(perkId);
 	}
+
+	public void AddLuaModule(Perk perk, Table luaModuleTable) {
+		var csharpModule = PerkModule_Lua.CreateLuaPerkModule(luaModuleTable);
+
+		// 插入到原版 Perk 的模块列表中
+		perk.modules.Add(csharpModule);
+	}
+
+	// 克隆函数
+	public Perk Clone(Perk perk) {
+		var newPerk = UnityEngine.Object.Instantiate(perk);
+		if (newPerk.modules != null) {
+			for (int i = 0; i < newPerk.modules.Count; i++) {
+				if (newPerk.modules[i] is PerkModule_Lua lua)
+					newPerk.modules[i] = lua.Clone();
+			}
+		}
+		return newPerk;
+	}
+
+	// 添加Perk
+	public void AddPerk(Perk perk) {
+		bool luaBuild = false;
+		foreach (var module in perk.modules) { 
+			if (module is PerkModule_Lua){
+				luaBuild = true;
+				break;
+			}
+		}
+		if (luaBuild) ENT_Player.GetPlayer().AddPerk(Clone(perk));
+		else ENT_Player.GetPlayer().AddPerk(perk);
+
+	}
+
+	// 移除全部perk
+	public void RemoveAllPerks(bool forceRemoveAll = true) => ENT_Player.GetPlayer().RemoveAllPerks(forceRemoveAll);
+	// 移除指定perk
+	public void RemovePerk(Perk perk, bool removeAll = true) => ENT_Player.GetPlayer().RemovePerk(perk, removeAll);
+	// 通过ID移除perk
+	public void RemovePerk(string perkID, bool removeAll = true) => ENT_Player.GetPlayer().RemovePerk(perkID, removeAll);
 }
 
 #endregion
@@ -192,8 +234,6 @@ public class PerkData {
 	public bool IsPlayerPerk() => ENT_Player.GetPlayer()?.perks?.Contains(_perk) ?? false;
 	// 从玩家身上移除
 	public void RemoveFromPlayer() => _perk.RemoveFromPlayer();
-	// 克隆函数
-	public Perk Clone() => UnityEngine.Object.Instantiate(_perk);
 
 	#endregion
 }

@@ -614,6 +614,7 @@ public static class Patch_ENT_Player {
 
 [HarmonyPatch(typeof(EntityBuff))]
 public static class Patch_EntityBuff {
+
 	#region[玩家获得BUFF]
 
 	public const string GET_BUFF_HOOK = "OnPlayerAddBuff";
