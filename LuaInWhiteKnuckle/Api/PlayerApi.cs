@@ -2,19 +2,14 @@
 using LuaInWhiteKnuckle.Game;
 using LuaInWhiteKnuckle.Registry;
 using LuaInWhiteKnuckle.Runtime;
-using MathNet.Numerics;
 using MoonSharp.Interpreter;
-using Steamworks.Ugc;
 using System;
 using System.Collections.Generic;
-using System.Text;
-using Unity.VisualScripting;
 using UnityEngine;
 using static BuffContainer;
 using static Damageable;
 using static GameEntity;
-using static Perk;
-using static Steamworks.InventoryItem;
+
 
 namespace LuaInWhiteKnuckle.Api;
 
@@ -31,6 +26,9 @@ public class PlayerApi {
 
 	// 玩家标签
 	public ObjectTagger tagger { get => _player.gameObject.GetComponent<ObjectTagger>(); }
+
+	public ENT_Player.Hand leftHand => _player.hands[0];
+	public ENT_Player.Hand rightHand => _player.hands[1];
 
 	#region[Entity属性API]
 
@@ -351,6 +349,7 @@ public class PlayerApi {
 	public void Shake(float strength) => CL_CameraControl.Shake(strength);
 
 	#endregion
+
 }
 
 #endregion
@@ -360,6 +359,7 @@ public class PlayerApi {
 [LuaData(typeof(ENT_Player.Hand))]
 [MoonSharpUserData]
 public class HandData {
+
 	#region[基础包装]
 
 	private readonly ENT_Player.Hand _hand;
@@ -481,6 +481,7 @@ public class HandData {
 	public void RockHand(float amount) => _hand.RockHand(amount);
 
 	#endregion
+
 }
 
 #endregion
@@ -523,27 +524,26 @@ public static class Patch_ENT_Player {
 
 	#region[玩家受伤HOOK]
 
-	public const string DAMAGE_HOOK = "OnPlayerDamage";
-
 	[HarmonyPatch(nameof(ENT_Player.Damage))]
 	[HarmonyPrefix]
 	public static bool Patch_Damage(ENT_Player __instance, ref DamageInfo info) {
+		const string HOOK_NAME = "OnPlayerDamage";
 		if (_godmodeField(__instance))
 			return true;
 		// 使用 using 块接 离开括号作用域时会自动调用 Dispose 清理
-		using (var guard = LuaHookGuard.Enter(DAMAGE_HOOK)) {
+		using (var guard = LuaHookGuard.Enter(HOOK_NAME)) {
 			// 如果发生重入 直接放行本体并退出
 			if (!guard.CanExecute)
 				return true;
 			try {
 				// 触发事件
-				ModEventBus.TriggerEvent(DAMAGE_HOOK, info);
+				ModEventBus.TriggerEvent(HOOK_NAME, info);
 				// 检查是否有修改/拦截型的 Hook
-				if (!Plugin.safeLuaSandbox.Api.Hooks.Contains(DAMAGE_HOOK))
+				if (!Plugin.safeLuaSandbox.Api.Hooks.Contains(HOOK_NAME))
 					return true;
 				// 获取Lua返回 伤害数据,是否免疫
 				var (damageInfoData, immunity) = ModHookBus.InvokeHook<(DamageInfoData, bool)>(
-					DAMAGE_HOOK, new DamageInfoData(info));
+					HOOK_NAME, new DamageInfoData(info));
 				// 本次伤害免疫
 				if (immunity)
 					return false;
@@ -551,7 +551,7 @@ public static class Patch_ENT_Player {
 					info = damageInfoData.Raw;
 				}
 			} catch (Exception e) {
-				Plugin.LogError($"[LuaInWK] HOOK异常 {DAMAGE_HOOK}: {e.Message}");
+				Plugin.LogError($"[LuaInWK] HOOK异常 {HOOK_NAME}: {e.Message}");
 			}
 			return true;
 		}
@@ -561,12 +561,13 @@ public static class Patch_ENT_Player {
 
 	#region[玩家死亡HOOK]
 
-	public const string KILL_HOOK = "OnPlayerKill";
+	
 	private static float _immunityEndTime;
 
 	[HarmonyPatch(nameof(ENT_Player.Kill))]
 	[HarmonyPrefix]
 	public static bool Patch_Kill(ENT_Player __instance, ref string type, ref Damageable.DamageInfo damageInfo) {
+		const string HOOK_NAME = "OnPlayerKill";
 		// 原版死亡机制免疫
 		if (__instance.dead || CL_GameManager.gMan.IsReviving() || _godmodeField(__instance))
 			return true;
@@ -574,21 +575,20 @@ public static class Patch_ENT_Player {
 		if (_immunityEndTime > Time.time)
 			return false;
 		// 使用 using 块接 离开括号作用域时会自动调用 Dispose 清理
-		using (var guard = LuaHookGuard.Enter(KILL_HOOK)) {
+		using (var guard = LuaHookGuard.Enter(HOOK_NAME)) {
 			// 如果发生重入 直接放行本体并退出
 			if (!guard.CanExecute)
 				return true;
 			try {
 				// 触发事件
-				ModEventBus.TriggerEvent(KILL_HOOK, type, damageInfo);
+				ModEventBus.TriggerEvent(HOOK_NAME, type, damageInfo);
 				// 检查是否有修改/拦截型的 Hook
-				if (!Plugin.safeLuaSandbox.Api.Hooks.Contains(KILL_HOOK))
+				if (!Plugin.safeLuaSandbox.Api.Hooks.Contains(HOOK_NAME))
 					return true;
 				// 获取Lua返回数据
 				var (typeData, damageInfoData, immunity, immunityTime) =
 					ModHookBus.InvokeHook<(string, DamageInfoData, bool, float)>(
-						KILL_HOOK, type, new DamageInfoData(damageInfo));
-				Plugin.LogTest($"[LuaInWK] type: {typeData} immunity: {immunity} immunityTime {immunityTime}");
+						HOOK_NAME, type, new DamageInfoData(damageInfo));
 				// 本次死亡免疫
 				if (immunity) {
 					immunityTime = immunityTime <= 0f ? 0.1f : immunityTime;
@@ -602,7 +602,42 @@ public static class Patch_ENT_Player {
 					type = typeData;
 				}
 			} catch (Exception e) {
-				Plugin.LogError($"[LuaInWK] HOOK异常 {KILL_HOOK}: {e.Message}");
+				Plugin.LogError($"[LuaInWK] HOOK异常 {HOOK_NAME}: {e.Message}");
+			}
+			return true;
+		}
+	}
+
+	#endregion
+
+	#region[玩家跳跃HOOK]
+
+	[HarmonyPatch(nameof(ENT_Player.Jump))]
+	[HarmonyPrefix]
+	public static bool Patch_Jump(ENT_Player __instance, ref bool canJumpBoost, ref float mult) {
+		const string HOOK_NAME = "OnPlayerJump";
+		// 使用 using 块接 离开括号作用域时会自动调用 Dispose 清理
+		using (var guard = LuaHookGuard.Enter(HOOK_NAME)) {
+			// 如果发生重入 直接放行本体并退出
+			if (!guard.CanExecute)
+				return true;
+			try {
+				// 触发事件
+				ModEventBus.TriggerEvent(HOOK_NAME, canJumpBoost, mult);
+				// 检查是否有修改/拦截型的 Hook
+				if (!Plugin.safeLuaSandbox.Api.Hooks.Contains(HOOK_NAME))
+					return true;
+				// 获取Lua返回数据
+				var (canJumpBoostData, multData, isCancelled) =
+					ModHookBus.InvokeHook<(bool, float,bool)>(HOOK_NAME, canJumpBoost, mult);
+				// 本次跳跃取消
+				if (isCancelled) {
+					return false;
+				}
+				canJumpBoost = canJumpBoostData;
+				mult = multData;
+			} catch (Exception e) {
+				Plugin.LogError($"[LuaInWK] HOOK异常 {HOOK_NAME}: {e.Message}");
 			}
 			return true;
 		}
@@ -617,33 +652,32 @@ public static class Patch_EntityBuff {
 
 	#region[玩家获得BUFF]
 
-	public const string GET_BUFF_HOOK = "OnPlayerAddBuff";
-
 	[HarmonyPatch(nameof(EntityBuff.AddBuff))]
 	[HarmonyPrefix]
 	public static bool Patch_AddBuff(EntityBuff __instance, ref BuffContainer buffContainer) {
+		const string HOOK_NAME = "OnPlayerAddBuff";
 		// 不是玩家 直接返回
 		if (__instance.gameEntity is not ENT_Player player)
 			return true;
 		// 使用 using 块接 离开括号作用域时会自动调用 Dispose 清理
-		using (var guard = LuaHookGuard.Enter(GET_BUFF_HOOK)) {
+		using (var guard = LuaHookGuard.Enter(HOOK_NAME)) {
 			// 如果发生重入 直接放行本体并退出
 			if (!guard.CanExecute)
 				return true;
 			try {
 				// 触发事件
-				ModEventBus.TriggerEvent(GET_BUFF_HOOK, buffContainer);
+				ModEventBus.TriggerEvent(HOOK_NAME, buffContainer);
 				// 检查是否有修改/拦截型的 Hook
-				if (!Plugin.safeLuaSandbox.Api.Hooks.Contains(GET_BUFF_HOOK))
+				if (!Plugin.safeLuaSandbox.Api.Hooks.Contains(HOOK_NAME))
 					return true;
 				// 获取修改后buff 是否禁用
 				var (buffContainerData, isDisabled) = ModHookBus.InvokeHook<(BuffContainerData, bool)>(
-					GET_BUFF_HOOK, new BuffContainerData(buffContainer));
+					HOOK_NAME, new BuffContainerData(buffContainer));
 				// 本次buff不使用
 				if (isDisabled)
 					return false;
 			} catch (Exception e) {
-				Plugin.LogError($"[LuaInWK] HOOK异常 {GET_BUFF_HOOK}: {e.Message}");
+				Plugin.LogError($"[LuaInWK] HOOK异常 {HOOK_NAME}: {e.Message}");
 			}
 			return true;
 		}

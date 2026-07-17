@@ -28,6 +28,8 @@ public class LuaTaskManager : MonoBehaviour {
 
 	public List<string> TasksName { get { return new List<string>(_tasks.Keys); } }
 
+	#region[Task任务]
+
 	public bool AddTask(Coroutine luaCoroutine, string debugName, params object[] args) {
 		// 并发防御
 		if (_tasks.Count >= MAX_CONCURRENT_TASKS) {
@@ -62,6 +64,10 @@ public class LuaTaskManager : MonoBehaviour {
 	}
 
 	public static void KillTask(string debugName) => Plugin.luaTaskManager.KillTaskImpl(debugName);
+
+	#endregion
+
+	#region[可异步执行]
 
 	/// <summary>
 	/// 执行指定的 Lua 函数
@@ -111,6 +117,12 @@ public class LuaTaskManager : MonoBehaviour {
 	public static void Execute(Closure callback, string debugName, params object[] args) =>
 		Plugin.luaTaskManager.ExecuteImpl(callback, debugName, args);
 
+	#endregion
+
+	#region[立刻同步执行]
+
+	#region[	返回DynValue结果]
+
 	/// <summary>
 	/// 同步执行 Lua Closure 并立即返回结果专供 Hook 拦截使用
 	/// 带有严格的防死循环保护, 一旦触发死循环将被强制中断
@@ -133,7 +145,7 @@ public class LuaTaskManager : MonoBehaviour {
 			// 检查是否因为超出了指令限制而被强制挂起
 			// (注意: Hook 中不应该使用主动的 coroutine.yield, 因为我们需要同步结果)
 			if (result.Type == DataType.YieldRequest || coroutine.State == CoroutineState.Suspended) {
-				Plugin.Logger.LogError($"[Hook安全拦截] Hook '{debugName}' 试图执行异步挂起或存在死循环指令超限, 已被强制熔断！");
+				Plugin.Logger.LogError($"[Hook安全拦截] Hook '{debugName}' 试图执行异步挂起或存在死循环指令超限, 已被强制熔断");
 				// 视情况可以在这里调用 safeLuaSandbox.InitSandbox() 重置环境
 				return DynValue.Nil;
 			}
@@ -152,6 +164,50 @@ public class LuaTaskManager : MonoBehaviour {
 	public static DynValue InvokeSync(Closure callback, string debugName, params object[] args) =>
 		Plugin.luaTaskManager.InvokeSyncImpl(callback, debugName, args);
 
+	/// <summary>
+	/// 同步执行 Lua Closure 并立即返回结果专供 Hook 拦截使用
+	/// 带有严格的防死循环保护, 一旦触发死循环将被强制中断
+	/// </summary>
+	private DynValue InvokeSyncImplFast(Closure callback, params object[] args) {
+		if (callback == null || callback.OwnerScript == null) {
+			Plugin.Logger.LogError($"[Hook执行错误] 无法执行 Hook 回调为空");
+			return DynValue.Nil;
+		}
+
+		try {
+			// 将回调包装为一个独立的协程, 仅仅是为了施加指令数限制
+			Coroutine coroutine = callback.OwnerScript.CreateCoroutine(callback).Coroutine;
+
+			coroutine.AutoYieldCounter = MAX_INSTRUCTIONS_PER_FRAME;
+
+			// 立即同步恢复执行
+			DynValue result = coroutine.Resume(args);
+
+			// 检查是否因为超出了指令限制而被强制挂起
+			// (注意: Hook 中不应该使用主动的 coroutine.yield, 因为我们需要同步结果)
+			if (result.Type == DataType.YieldRequest || coroutine.State == CoroutineState.Suspended) {
+				Plugin.Logger.LogError($"[Hook安全拦截] Hook 试图执行异步挂起或存在死循环指令超限, 已被强制熔断");
+				// 视情况可以在这里调用 safeLuaSandbox.InitSandbox() 重置环境
+				return DynValue.Nil;
+			}
+
+			return result;
+
+		} catch (ScriptRuntimeException ex) {
+			Plugin.Logger.LogError($"[Hook运行时错误] 发生异常: {ex.DecoratedMessage}");
+			return DynValue.Nil;
+		} catch (System.Exception ex) {
+			Plugin.Logger.LogError($"[Hook系统错误] 发生异常: {ex.Message}");
+			return DynValue.Nil;
+		}
+	}
+
+	public static DynValue InvokeSyncFast(Closure callback, params object[] args) =>
+		Plugin.luaTaskManager.InvokeSyncImplFast(callback, args);
+
+	#endregion
+
+	#region[	返回泛型结果]
 
 	/// <summary>
 	/// 同步执行 通过泛型包装返回值
@@ -163,6 +219,21 @@ public class LuaTaskManager : MonoBehaviour {
 
 	public static T InvokeSync<T>(Closure callback, string debugName, params object[] args)=>
 		Plugin.luaTaskManager.InvokeSyncImpl<T>(callback, debugName, args);
+
+	/// <summary>
+	/// 同步执行 通过泛型包装返回值
+	/// </summary>
+	private T InvokeSyncImplFast<T>(Closure callback, params object[] args) {
+		DynValue value = InvokeSyncImplFast(callback, args);
+		return value.ToClr<T>();
+	}
+
+	public static T InvokeSyncFast<T>(Closure callback, params object[] args) =>
+		Plugin.luaTaskManager.InvokeSyncImplFast<T>(callback, args);
+
+	#endregion
+
+	#region[	返回是否执行正常]
 
 	/// <summary>
 	/// 同步执行 返回Lua脚本是否被正常执行
@@ -185,7 +256,7 @@ public class LuaTaskManager : MonoBehaviour {
 			// 检查是否因为超出了指令限制而被强制挂起
 			// (注意: Hook 中不应该使用主动的 coroutine.yield, 因为我们需要同步结果)
 			if (result.Type == DataType.YieldRequest || coroutine.State == CoroutineState.Suspended) {
-				Plugin.Logger.LogError($"[Hook安全拦截] Hook '{debugName}' 试图执行异步挂起或存在死循环指令超限, 已被强制熔断！");
+				Plugin.Logger.LogError($"[Hook安全拦截] Hook '{debugName}' 试图执行异步挂起或存在死循环指令超限, 已被强制熔断");
 				// 视情况可以在这里调用 safeLuaSandbox.InitSandbox() 重置环境
 				return false;
 			}
@@ -203,6 +274,50 @@ public class LuaTaskManager : MonoBehaviour {
 
 	public static bool Invoke(Closure callback, string debugName, params object[] args) =>
 		Plugin.luaTaskManager.InvokeImpl(callback, debugName, args);
+
+	/// <summary>
+	/// 同步执行 返回Lua脚本是否被正常执行
+	/// </summary>
+	private bool InvokeImplFast(Closure callback, params object[] args) {
+		if (callback == null || callback.OwnerScript == null) {
+			Plugin.Logger.LogError($"[Hook执行错误] 无法执行 Hook 回调为空");
+			return false;
+		}
+
+		try {
+			// 将回调包装为一个独立的协程, 仅仅是为了施加指令数限制
+			Coroutine coroutine = callback.OwnerScript.CreateCoroutine(callback).Coroutine;
+
+			coroutine.AutoYieldCounter = MAX_INSTRUCTIONS_PER_FRAME;
+
+			// 立即同步恢复执行
+			DynValue result = coroutine.Resume(args);
+
+			// 检查是否因为超出了指令限制而被强制挂起
+			// (注意: Hook 中不应该使用主动的 coroutine.yield, 因为我们需要同步结果)
+			if (result.Type == DataType.YieldRequest || coroutine.State == CoroutineState.Suspended) {
+				Plugin.Logger.LogError($"[Hook安全拦截] Hook 试图执行异步挂起或存在死循环指令超限, 已被强制熔断");
+				// 视情况可以在这里调用 safeLuaSandbox.InitSandbox() 重置环境
+				return false;
+			}
+
+			return true;
+
+		} catch (ScriptRuntimeException ex) {
+			Plugin.Logger.LogError($"[Hook运行时错误] 发生异常: {ex.DecoratedMessage}");
+			return false;
+		} catch (System.Exception ex) {
+			Plugin.Logger.LogError($"[Hook系统错误] 发生异常: {ex.Message}");
+			return false;
+		}
+	}
+
+	public static bool InvokeFast(Closure callback, params object[] args) =>
+		Plugin.luaTaskManager.InvokeImplFast(callback, args);
+
+	#endregion
+
+	#endregion
 
 	private void Update() {
 		if (_tasks.Count == 0) return;
@@ -241,7 +356,7 @@ public class LuaTaskManager : MonoBehaviour {
 
 			// 超过执行次数的协程暂停
 			if (result.Type == DataType.YieldRequest) {
-				Plugin.Logger.LogError($"[沙箱控制] 脚本 {task.DebugName} 指令超限或疑似死循环！");
+				Plugin.Logger.LogError($"[沙箱控制] 脚本 {task.DebugName} 指令超限或疑似死循环");
 
 				// 视情况决定是否要调用 Plugin.safeLuaSandbox.InitSandbox() 重置全局环境
 				_deadList.Add(task);

@@ -89,6 +89,11 @@ public class PerkApi {
 		return CL_AssetManager.GetPerkAsset(perkId);
 	}
 
+	/// <summary>
+	/// 给指定Perk添加模块
+	/// </summary>
+	/// <param name="perk"></param>
+	/// <param name="luaModuleTable"></param>
 	public void AddLuaModule(Perk perk, Table luaModuleTable) {
 		var csharpModule = PerkModule_Lua.CreateLuaPerkModule(luaModuleTable);
 
@@ -96,31 +101,9 @@ public class PerkApi {
 		perk.modules.Add(csharpModule);
 	}
 
-	// 克隆函数
-	public Perk Clone(Perk perk) {
-		var newPerk = UnityEngine.Object.Instantiate(perk);
-		if (newPerk.modules != null) {
-			for (int i = 0; i < newPerk.modules.Count; i++) {
-				if (newPerk.modules[i] is PerkModule_Lua lua)
-					newPerk.modules[i] = lua.Clone();
-			}
-		}
-		return newPerk;
-	}
-
 	// 添加Perk
-	public void AddPerk(Perk perk) {
-		bool luaBuild = false;
-		foreach (var module in perk.modules) { 
-			if (module is PerkModule_Lua){
-				luaBuild = true;
-				break;
-			}
-		}
-		if (luaBuild) ENT_Player.GetPlayer().AddPerk(Clone(perk));
-		else ENT_Player.GetPlayer().AddPerk(perk);
-
-	}
+	public void AddPerk(Perk perk) => ENT_Player.GetPlayer().AddPerk(perk);
+	
 
 	// 移除全部perk
 	public void RemoveAllPerks(bool forceRemoveAll = true) => ENT_Player.GetPlayer().RemoveAllPerks(forceRemoveAll);
