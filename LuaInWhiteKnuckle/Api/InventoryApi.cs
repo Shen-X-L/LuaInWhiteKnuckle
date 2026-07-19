@@ -7,9 +7,11 @@ using Newtonsoft.Json.Bson;
 using Steamworks.Ugc;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using Unity.VisualScripting;
 using UnityEngine;
 using static Inventory;
 
@@ -174,7 +176,7 @@ public class InventoryApi {
 	// 丢弃物品
 	public void DropItemIntoWorld(Item item, Vector3 pos) => _inventory.DropItemIntoWorld(item, pos);
 	public void DropItemIntoWorld(ItemData itemData, Vector3 pos) => _inventory.DropItemIntoWorld(itemData.Raw, pos);
-	
+
 	/// <summary>
 	/// 丢弃全部物品
 	/// </summary>
@@ -231,8 +233,8 @@ public class InventoryApi {
 	// 丢弃手中物品
 	public void DropItem(int handIndex) {
 		var hands = ENT_Player.GetPlayer().hands;
-		if (handIndex == -1) { 
-			foreach(var hand in hands)
+		if (handIndex == -1) {
+			foreach (var hand in hands)
 				hand.DropItem();
 			return;
 		}
@@ -240,7 +242,8 @@ public class InventoryApi {
 			hands[handIndex].DropItem();
 	}
 
-	public void TryPocketItemInHand(int handIndex)=> _inventory.TryPocketItemInHand(handIndex);
+	public void TryPocketItemInHand(int handIndex) => _inventory.TryPocketItemInHand(handIndex);
+
 	#endregion
 
 	#region[口袋物品API]
@@ -283,7 +286,12 @@ public class InventoryApi {
 		for (int i = 0; i < count; i++) {
 			var pickupObj = GameObject.Instantiate(itemPrefab, new Vector3(0, 1, 0), Quaternion.identity);
 			var itemObject = pickupObj.GetComponent<Item_Object>();
-			pocket.pouch.AddItemToPouch(itemObject.itemData, false);
+			var itemData = itemObject.itemData;
+			// 添加到背包
+			_inventory.AddItemToInventoryScreen(Vector3.zero, itemData, localSpacePosition: false, useStoredValues: false, pushItems: false);
+			// 添加到口袋并重置坐标
+			pocket.pouch.AddItemToPouch(itemObject.itemData, pushItemsApart: false);
+			itemData.GetDropObject().transform.position = pocket.transform.position;
 			itemObject.gameObject.SetActive(false);
 		}
 		return true;
@@ -292,7 +300,7 @@ public class InventoryApi {
 	/// <summary>
 	/// 从口袋删除物品
 	/// </summary>
-	public void RemovePocketItem(int pocketIndex, string item, int count = 1) {
+	public void RemovePocketItem(int pocketIndex, string item = "", int count = 1) {
 		if (_inventory == null) return;
 		if (pocketIndex < 0 || pocketIndex >= _inventory.pockets.Count) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Invalid pocket index {pocketIndex}");
@@ -300,8 +308,10 @@ public class InventoryApi {
 		}
 		var pocket = _inventory.pockets[pocketIndex];
 		for (int i = pocket.pouch.pouchItems.Count - 1; i >= 0; i--) {
-			if (pocket.pouch.pouchItems[i].prefabName == item) {
-				pocket.pouch.RemoveItemFromPouch(pocket.pouch.pouchItems[i]);
+			var itemData = pocket.pouch.pouchItems[i];
+			if (itemData.prefabName == item || item == "") {
+				pocket.pouch.RemoveItemFromPouch(itemData);
+				if (_inventory.bagItems.Contains(itemData)) _inventory.bagItems.Remove(itemData);
 				count--;
 				if (count <= 0) break;
 			}
@@ -473,6 +483,8 @@ public class PouchData {
 
 #region[监听器类]
 
+#region[	背包监听器]
+
 public class InventoryMonitor : IWatcher {
 	public int EnableCount { get; set; }
 	public IReadOnlyList<string> Events { get; } = [
@@ -484,8 +496,6 @@ public class InventoryMonitor : IWatcher {
 	private Dictionary<string, int> _lastItems = new();
 	private Dictionary<string, int> _currentItems = new();
 	public void Tick() {
-		Plugin.LogTest("InventoryMonitor.Tick");
-
 		if (InventoryApi._inventory == null) return;
 
 		// 清空当前帧缓存
@@ -527,31 +537,76 @@ public class InventoryMonitor : IWatcher {
 	}
 }
 
+#endregion
+
+#region[	手部物品监听器]
+
 public class HandItemMonitor : IWatcher {
 	public int EnableCount { get; set; }
 	public IReadOnlyList<string> Events { get; } = ["OnHandItemChange"];
 	public float NextUpdateTime { get; set; }
 	public float Interval { get { return 0.2f; } }
 	private Item[] _lastItems = new Item[2];
+	private string[] _lastItemsPrefab = new string[2];
 	private Item[] _currentItems = new Item[2];
+	private string[] _currentItemsPrefab = new string[2];
 	public void Tick() {
-		Plugin.LogTest("HandItemMonitor.Tick");
-
 		if (InventoryApi._inventory == null) return;
 
 		// 构建Dict
 		_currentItems[0] = InventoryApi._inventory.itemHands[0].currentItem;
 		_currentItems[1] = InventoryApi._inventory.itemHands[1].currentItem;
 
+		// 可能还是同一个Item 但是不同状态 (如食物 perfab不同)
+		_currentItemsPrefab[0] = _currentItems[0]?.prefabName ?? "None";
+		_currentItemsPrefab[1] = _currentItems[1]?.prefabName ?? "None";
+
 		// 对比
-		if (_currentItems[0] != _lastItems[0])
-			ModEventBus.TriggerEvent("OnHandItemChange", "Hand0", _lastItems[0], _currentItems[0]);
-		if (_currentItems[1] != _lastItems[1])
-			ModEventBus.TriggerEvent("OnHandItemChange", "Hand1", _lastItems[1], _currentItems[1]);
+		if (_currentItems[0] != _lastItems[0]|| _currentItemsPrefab[0]!= _lastItemsPrefab[0]) {
+			ModEventBus.TriggerEvent("OnHandItemChange", 0, _lastItems[0], _currentItems[0]);
+		}
+		if (_currentItems[1] != _lastItems[1] || _currentItemsPrefab[1] != _lastItemsPrefab[1]) {
+			ModEventBus.TriggerEvent("OnHandItemChange", 1, _lastItems[1], _currentItems[1]);
+		}
 
 		(_lastItems, _currentItems) = (_currentItems, _lastItems);
+		(_lastItemsPrefab, _currentItemsPrefab) = (_currentItemsPrefab, _lastItemsPrefab);
 	}
 }
+
+// 拦截HandItem全子类 Use StopUse
+[HarmonyPatch]
+public static class Patch_HandItem_Lifecycle {
+
+	// 统一的主入口
+	static IEnumerable<MethodBase> TargetMethods() {
+		// 优化:只扫描包含 HandItem 的程序集和本 Mod 程序集
+		var scanAssemblies = new[] { typeof(HandItem).Assembly, Assembly.GetExecutingAssembly() };
+
+		foreach (var assembly in scanAssemblies) {
+			foreach (var type in assembly.GetTypes()) {
+				// 允许抽象类通过
+				if (!typeof(HandItem).IsAssignableFrom(type)) continue;
+
+				// DeclaredMethod 只抓取当前类定义的 Method
+				MethodInfo use = AccessTools.DeclaredMethod(type, nameof(HandItem.Use));
+				if (use != null) yield return use;
+
+				MethodInfo stopUse = AccessTools.DeclaredMethod(type, nameof(HandItem.StopUse));
+				if (stopUse != null) yield return stopUse;
+			}
+		}
+	}
+
+	[HarmonyPostfix]
+	static void Postfix(MethodBase __originalMethod) {
+		GameWatcherManager.Get<HandItemMonitor>()?.Tick();
+	}
+}
+
+#endregion
+
+#region[	口袋监听器]
 
 public class PocketItemMonitor : IWatcher {
 	public int EnableCount { get; set; }
@@ -561,8 +616,6 @@ public class PocketItemMonitor : IWatcher {
 	private List<(string, int)> _lastItems = new();
 	private List<(string, int)> _currentItems = new();
 	public void Tick() {
-		Plugin.LogTest("PocketItemMonitor.Tick");
-
 		if (InventoryApi._inventory == null) return;
 
 		// 构建口袋物品列表
@@ -589,23 +642,36 @@ public class PocketItemMonitor : IWatcher {
 
 #endregion
 
+#endregion
+
 #region[补丁类]
 
 [HarmonyPatch(typeof(Inventory))]
 public class Patch_Inventory {
-	// 无限小袋
+	#region[无限小袋]
+
 	[HarmonyPatch(nameof(Inventory.AddExtraPouch))]
 	[HarmonyTranspiler]
 	public static IEnumerable<CodeInstruction> Transpiler_Add(IEnumerable<CodeInstruction> instructions) {
-		bool foundAnchor = false;
+		// 状态机控制 0 = 寻找 Clamp, 1 = 寻找 bagHandler, 2 = 正常放行后续指令
+		int locateState = 0;
 
 		foreach (var inst in instructions) {
-			if (!foundAnchor) {
-				// 定位锚点: 找第一个加载 bagHandler 字段的指令
-				if (inst.opcode == OpCodes.Ldfld && inst.operand is FieldInfo field && field.Name == "bagHandler") {
-					foundAnchor = true;
-					// 所以我们在这里手动注入底层的 IL 指令:  this.pouchCount = this.pouchCount + 1;
+			// 阶段1 寻找原版的 Mathf.Clamp 调用
+			if (locateState == 0) {
+				if (inst.opcode == OpCodes.Call && inst.operand is MethodInfo method && method.Name == "Clamp") {
+					locateState = 1; // 找到了 Clamp,切换到下一阶段
+				}
+				// 在找到 Clamp 之前的所有指令(包括 if >= 4 检查和 Clamp 压栈参数)一律物理丢弃
+				continue;
+			}
 
+			// 阶段2 在 Clamp 之后,寻找第一个加载 bagHandler 的指令
+			if (locateState == 1) {
+				if (inst.opcode == OpCodes.Ldfld && inst.operand is FieldInfo field && field.Name == "bagHandler") {
+					locateState = 2; // 匹配成功,进入放行状态
+
+					// --- 开始动态注入无上限自增逻辑 this.pouchCount = this.pouchCount + 1; ---
 					yield return new CodeInstruction(OpCodes.Ldarg_0); // this
 					yield return new CodeInstruction(OpCodes.Ldarg_0); // this
 					yield return new CodeInstruction(OpCodes.Ldfld, AccessTools.Field(typeof(Inventory), "pouchCount")); // 取出 pouchCount
@@ -613,17 +679,59 @@ public class Patch_Inventory {
 					yield return new CodeInstruction(OpCodes.Add); // 加法
 					yield return new CodeInstruction(OpCodes.Stfld, AccessTools.Field(typeof(Inventory), "pouchCount")); // 存回 pouchCount
 
-					// 最后, 补回原本紧跟在 bagHandler 前面的那句 ldarg.0 (因为我们从方法开头一直丢弃到了现在的 inst)
+					// 补回原版本来紧跟在 bagHandler 前面、但被我们丢弃掉的那句 ldarg.0
 					yield return new CodeInstruction(OpCodes.Ldarg_0);
-					// 产出当前的 ldfld bagHandler, 原版流程继续
+					// 产出当前的 ldfld bagHandler 指令
 					yield return inst;
 				}
-				// 如果还没找到锚点, 什么都不 yield, 这就实现了物理意义上的“直接跳过执行”
-			} else {
-				// 找到锚点之后的所有后续动画和UI刷新指令, 正常放行
-				yield return inst;
+				// 在 Clamp 到 bagHandler 之间的指令（如原版的 stfld pouchCount 和这句前面的 ldarg.0）一律丢弃
+				continue;
 			}
+
+			// 阶段3 目标已经安全注入完毕,后续的所有 UI 刷新和循环分配逻辑直接原样放行
+			yield return inst;
 		}
 	}
+
+	[HarmonyPatch(typeof(Inventory), nameof(Inventory.RemoveExtraPouch))]
+	[HarmonyTranspiler]
+	public static IEnumerable<CodeInstruction> Transpiler_Remove(IEnumerable<CodeInstruction> instructions) {
+		CodeInstruction prevInst = null;
+
+		foreach (var inst in instructions) {
+			// 1. 捕捉原版的 Mathf.Clamp 调用
+			if (inst.opcode == OpCodes.Call && inst.operand is MethodInfo method && method.Name == "Clamp") {
+				// 2. 检查此时留在缓冲区里的前一条指令,是不是原版的上限常数 4
+				if (prevInst != null && prevInst.opcode == OpCodes.Ldc_I4_4) {
+					// 3. 将 4 替换为 int.MaxValue
+					prevInst.opcode = OpCodes.Ldc_I4;
+					prevInst.operand = int.MaxValue;
+				}
+			}
+
+			// 延迟一步输出指令,允许我们在"下一帧"偷看并修改"上一帧"的内容
+			if (prevInst != null) {
+				yield return prevInst;
+			}
+			prevInst = inst;
+		}
+
+		// 吐出最后一条残留指令
+		if (prevInst != null) {
+			yield return prevInst;
+		}
+	}
+
+	#endregion
+
+	#region[手部物品监听]
+
+	[HarmonyPatch(nameof(Inventory.DropItemFromHand))]
+	[HarmonyPostfix]
+	public static void Patch_DropItemFromHand(bool __result) { 
+		if (__result) GameWatcherManager.Get<HandItemMonitor>()?.Tick();
+	}
+
+	#endregion
 }
 #endregion

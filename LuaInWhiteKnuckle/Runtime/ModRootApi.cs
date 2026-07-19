@@ -58,7 +58,7 @@ public class ModEventBus {
 	/// <param name="listenerId"></param>
 	/// <param name="callback"></param>
 	public void On(string eventName, string listenerId, Closure callback) {
-		Plugin.LogTest("ModEventBus.On");
+		Plugin.LogTest($"ModEventBus.On eventName:{eventName} listenerId:{listenerId}");
 		if (callback == null) return;
 		if (!_listeners.ContainsKey(eventName)) {
 			_listeners[eventName] = new List<LuaEventListener>();
@@ -79,16 +79,14 @@ public class ModEventBus {
 	/// <param name="debugName"></param>
 	/// <returns>是否成功移除</returns>
 	public bool Off(string eventName, string debugName) {
-		if (!_listeners.TryGetValue(eventName, out var listeners))
-			return false;
+		if (!_listeners.TryGetValue(eventName, out var listeners)) return false;
 
 		for (int i = listeners.Count - 1; i >= 0; i--) {
 			if (listeners[i].DebugName == debugName) {
 				listeners.RemoveAt(i);
 
 				// 没有监听器了, 顺便删除事件
-				if (listeners.Count == 0)
-					_listeners.Remove(eventName);
+				if (listeners.Count == 0) _listeners.Remove(eventName);
 				Plugin.gameWatcherManager.Enable(eventName, false);
 				return true;
 			}
@@ -119,8 +117,7 @@ public class ModEventBus {
 	/// <param name="args">传递给 Lua 回调的参数</param>
 	[MoonSharpHidden]
 	public void Trigger(string eventName, params object[] args) {
-		if (!_listeners.TryGetValue(eventName, out var listeners))
-			return;
+		if (!_listeners.TryGetValue(eventName, out var listeners)) return;
 
 		// 倒序遍历, 防止执行过程中注销监听
 		for (int i = listeners.Count - 1; i >= 0; i--) {
@@ -188,7 +185,7 @@ public class ModHookBus {
 		// 调用 TaskManager 的同步安全执行方法, 而不是直接 Call
 		DynValue result = LuaTaskManager.InvokeSync(hook.Callback, hook.Id, args);
 
-		// 如果执行失败、被熔断, 或者 Lua 显式返回了 nil, 则返回默认值
+		// 如果执行失败, 被熔断, 或者 Lua 显式返回了 nil, 则返回默认值
 		if (result == null || result.IsNil()) 
 			return default;
 		
@@ -217,11 +214,11 @@ public class TimeApi {
 	/// <para/>
 	/// 从场景开始运行到现在经过的时间
 	/// <para/>
-	/// 会受到 <see cref="timeScale"/> 影响：
+	/// 会受到 <see cref="timeScale"/> 影响:
 	/// <list type="bullet">
-	/// <item>timeScale = 1：正常流逝</item>
-	/// <item>timeScale = 0.5：时间流逝速度减半</item>
-	/// <item>timeScale = 0：暂停增长</item>
+	/// <item>timeScale = 1:正常流逝</item>
+	/// <item>timeScale = 0.5:时间流逝速度减半</item>
+	/// <item>timeScale = 0:暂停增长</item>
 	/// </list>
 	/// </summary>
 	public float time => Time.time;
@@ -231,7 +228,7 @@ public class TimeApi {
 	/// <para/>
 	/// 会受到 <see cref="timeScale"/> 影响
 	/// <para/>
-	/// 建议用于：
+	/// 建议用于:
 	/// <code>
 	/// position = position + speed * deltaTime
 	/// </code>
@@ -242,9 +239,9 @@ public class TimeApi {
 	/// <summary>
 	/// 未受时间缩放影响的运行时间 (秒)
 	/// <para/>
-	/// 无论游戏是否暂停、慢动作或加速都会持续增长
+	/// 无论游戏是否暂停, 慢动作或加速都会持续增长
 	/// <para/>
-	/// 建议用于：
+	/// 建议用于:
 	/// <list type="bullet">
 	/// <item>Lua 协程计时</item>
 	/// <item>UI 动画</item>
@@ -259,7 +256,7 @@ public class TimeApi {
 	/// <para/>
 	/// 不受 <see cref="timeScale"/> 影响
 	/// <para/>
-	/// 常用于 UI、菜单动画以及不应暂停的逻辑
+	/// 常用于 UI, 菜单动画以及不应暂停的逻辑
 	/// </summary>
 	public float unscaledDeltaTime => Time.unscaledDeltaTime;
 
@@ -277,7 +274,7 @@ public class TimeApi {
 	/// <para/>
 	/// 每渲染一帧增加 1
 	/// <para/>
-	/// 可用于：
+	/// 可用于:
 	/// <list type="bullet">
 	/// <item>每 N 帧执行一次逻辑</item>
 	/// <item>调试</item>

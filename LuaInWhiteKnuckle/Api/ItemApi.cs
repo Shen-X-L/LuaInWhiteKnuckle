@@ -86,6 +86,7 @@ public class ItemData {
 	public List<string> itemTags => _item.itemTags;
 	// 预制体名称
 	public string prefabName => _item.prefabName;
+	public string prefab => _item.prefabName;
 	// 物品重量
 	public float itemWeight {
 		get => _item.itemWeight;
@@ -113,13 +114,13 @@ public class ItemData {
 	}
 	// 背包中的位置
 	public Vector3 bagPosition {
-		get => _item.bagPosition;
-		set => _item.bagPosition = value;
+		get => _item.GetDropObject().transform.localPosition;
+		set => _item.GetDropObject().transform.localPosition = value;
 	}
 	// 背包中的旋转
 	public Quaternion bagRotation {
-		get => _item.bagRotation;
-		set => _item.bagRotation = value;
+		get => _item.GetDropObject().transform.localRotation;
+		set => _item.GetDropObject().transform.localRotation = value;
 	}
 	// 是否在背包/手中
 	public bool inInventory => _item.inventory != null;
@@ -143,6 +144,14 @@ public class HandItemData{
 
 	[MoonSharpHidden]
 	public HandItem Raw => _handItem;
+
+	public Item item => _handItem.item;
+	public bool active => _handItem.active;
+	public bool used => _handItem.used;
+
+	public void Use()=> _handItem.Use();
+	public void StopUse()=> _handItem.StopUse();
+	public void Activate() => _handItem.Activate();
 }
 
 #endregion

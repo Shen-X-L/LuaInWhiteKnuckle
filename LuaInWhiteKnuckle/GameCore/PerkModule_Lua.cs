@@ -95,12 +95,11 @@ public class PerkModule_Lua : PerkModule {
 	#endregion
 
 	private ClosuresCache _closuresCache;     // Lua函数缓存
-	private string _updateDebugName;
 	private Closure _update;
 	private float _tick;
 	private bool _isBroken = false;
 	private float _time;// 更新计时器
-	private bool _initialize = false;// 是否初始化
+	private bool _initialized = false;// 是否初始化
 
 	#region[Update接口实现变量]
 
@@ -114,7 +113,7 @@ public class PerkModule_Lua : PerkModule {
 		}
 
 		var module = new PerkModule_Lua {
-			// 创建母体时生成唯一特征码，并将原始 Table 注册进中央调度室
+			// 创建母体时生成唯一特征码, 并将原始 Table 注册进中央调度室
 			moduleGuid = Guid.NewGuid().ToString(),
 			name = luaTable.Get("name").String ?? "Unknown Lua Module"
 		};
@@ -133,7 +132,7 @@ public class PerkModule_Lua : PerkModule {
 				_closuresCache = sharedClosures;
 			} else {
 				_isBroken = true;
-				Debug.LogError($"[Sandbox] 严重错误：未在全局注册表中找到特征码为 {moduleGuid} 的共享 Lua 表");
+				Debug.LogError($"[Sandbox] 严重错误:未在全局注册表中找到特征码为 {moduleGuid} 的共享 Lua 表");
 			}
 		}
 	}
@@ -154,15 +153,11 @@ public class PerkModule_Lua : PerkModule {
 			_time = Time.time;
 			_update = _closuresCache.update;
 			_tick = _closuresCache.tick;
-			_updateDebugName = $"{name}_update";
 		}
-
-		if (_isBroken || _closuresCache == null || _closuresCache.initialize == null) {
-			_initialize = true;
-			return; 
-		}
+		if (_initialized) return;
+		_initialized = true;
+		if (_isBroken || _closuresCache == null || _closuresCache.initialize == null) return; 
 		LuaTaskManager.Execute(_closuresCache.initialize, $"{name}_initialize", p, firstTime);
-		_initialize = true;
 	}
 
 	/// <summary>
@@ -181,7 +176,7 @@ public class PerkModule_Lua : PerkModule {
 	/// </summary>
 	public override void Update() {
 		// 没有更新函数
-		if (_isBroken || _update == null || !_initialize) return;
+		if (_isBroken || _update == null || !_initialized) return;
 		// 未到触发时间
 		if (_time > Time.time) return;
 		_isBroken = !LuaTaskManager.InvokeFast(_update);
@@ -194,6 +189,8 @@ public class PerkModule_Lua : PerkModule {
 	/// Perk 销毁时调用.
 	/// </summary>
 	public override void OnDestroy(Perk p) {
+		if (!_initialized)return;
+		_initialized = false;
 		if (_isBroken || _closuresCache == null || _closuresCache.onDestroy == null) return;
 		LuaTaskManager.Execute(_closuresCache.onDestroy, $"{name}_onDestroy", p);
 	}

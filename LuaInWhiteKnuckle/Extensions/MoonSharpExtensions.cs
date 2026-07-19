@@ -14,7 +14,7 @@ public static class MoonSharpExtensions {
 	/// 外部调用的主入口 - 性能提升 10-50 倍, 运行时变为 0 GC Alloc
 	/// </summary>
 	public static T ToClr<T>(this DynValue value) {
-		// 运行时只需要一步：直接从强类型缓存中读取编译好的委托执行
+		// 运行时只需要一步:直接从强类型缓存中读取编译好的委托执行
 		return TupleConverterCache<T>.Convert(value);
 	}
 
@@ -72,14 +72,14 @@ public static class MoonSharpExtensions {
 						.GetMethod(nameof(ConvertElement), BindingFlags.Public | BindingFlags.Static)
 						.MakeGenericMethod(args[i]);
 
-					// 拼装：ConvertElement<T_i>(value, i)
+					// 拼装:ConvertElement<T_i>(value, i)
 					argExprs[i] = Expression.Call(method, paramExpr, Expression.Constant(i));
 				}
 
-				// 拼装：new ValueTuple<T1, T2...>(...)
+				// 拼装:new ValueTuple<T1, T2...>(...)
 				NewExpression newExpr = Expression.New(ctor, argExprs);
 
-				// 编译成原生的强类型委托：Func<DynValue, ValueTuple<...>>
+				// 编译成原生的强类型委托:Func<DynValue, ValueTuple<...>>
 				var lambda = Expression.Lambda<Func<DynValue, T>>(newExpr, paramExpr);
 				Convert = lambda.Compile();
 			} else {

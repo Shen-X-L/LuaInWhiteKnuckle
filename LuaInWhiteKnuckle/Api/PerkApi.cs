@@ -1,5 +1,6 @@
 ﻿using LuaInWhiteKnuckle.Game;
 using LuaInWhiteKnuckle.Registry;
+using LuaInWhiteKnuckle.Util;
 using MoonSharp.Interpreter;
 using System;
 using System.Collections.Generic;
@@ -31,7 +32,7 @@ public class PerkApi {
 	public Dictionary<string, Perk> LuaPerks { get; } = new();
 
 	/// <summary>
-	/// 提供给 Lua 调用的接口：动态创建一个纯 Buff 的自定义 Perk
+	/// 提供给 Lua 调用的接口:动态创建一个纯 Buff 的自定义 Perk
 	/// </summary>
 	public Perk CreateCustomBuffPerk(string id, string title = "", string description = "", bool attenuation = true) {
 		// 在内存中创建一个全新的 ScriptableObject 实例
@@ -78,16 +79,23 @@ public class PerkApi {
 		};
 		perk.buffMultiplier = 1f;
 
-		LuaPerks.Add(id, perk);
+		LuaPerks[id] = perk;
 
 		return perk;
 	}
 
+	/// <summary>
+	/// 获取perk
+	/// </summary>
+	/// <param name="perkId"></param>
+	/// <returns></returns>
 	public Perk GetPerk(string perkId) {
 		if (LuaPerks.TryGetValue(perkId, out var perk))
 			return perk;
 		return CL_AssetManager.GetPerkAsset(perkId);
 	}
+
+
 
 	/// <summary>
 	/// 给指定Perk添加模块

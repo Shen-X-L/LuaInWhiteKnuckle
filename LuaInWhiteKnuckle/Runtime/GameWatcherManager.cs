@@ -1,13 +1,16 @@
 ﻿using LuaInWhiteKnuckle.Api;
 using LuaInWhiteKnuckle.Game;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace LuaInWhiteKnuckle.Runtime;
 
 public class GameWatcherManager : MonoBehaviour {
+
 	private static readonly List<IWatcher> _watchers = new();
 	private static readonly Dictionary<string, List<IWatcher>> _eventMap = new();
+	private static readonly Dictionary<Type, IWatcher> _instances = new();
 	private void Awake() {
 
 	}
@@ -22,11 +25,11 @@ public class GameWatcherManager : MonoBehaviour {
 		float now = Time.unscaledTime;
 		for (int i = 0; i < _watchers.Count; i++) {
 			var watcher = _watchers[i];
+			// 不需要更新
 			if (!watcher.NeedEnable) continue;
-			Plugin.LogTest("GameWatcherManager.Update B");
+			// 未达到监听间隔
 			if (now < watcher.NextUpdateTime) continue;
 			watcher.NextUpdateTime = now + watcher.Interval;
-
 			watcher.Tick();
 		}
 	}
@@ -36,6 +39,9 @@ public class GameWatcherManager : MonoBehaviour {
 		_eventMap.Clear();
 	}
 
+	/// <summary>
+	/// 注册游戏事件监听类
+	/// </summary>
 	public static void Register(IWatcher watcher) {
 		if (watcher == null) return;
 
@@ -43,23 +49,24 @@ public class GameWatcherManager : MonoBehaviour {
 
 		_watchers.Add(watcher);
 
+		_instances[watcher.GetType()] = watcher;
+
 		foreach (string eventName in watcher.Events) {
 			if (!_eventMap.TryGetValue(eventName, out var list)) {
 				list = new List<IWatcher>();
 				_eventMap[eventName] = list;
 			}
 
-			if (!list.Contains(watcher))
-				list.Add(watcher);
+			if (!list.Contains(watcher)) list.Add(watcher);
 		}
 	}
 
 	public void Unregister(IWatcher watcher) {
 		if (watcher == null) return;
 		_watchers.Remove(watcher);
+		_instances.Remove(watcher.GetType());
 		foreach (string eventName in watcher.Events) {
-			if (!_eventMap.TryGetValue(eventName, out var list))
-				continue;
+			if (!_eventMap.TryGetValue(eventName, out var list)) continue;
 
 			list.Remove(watcher);
 
@@ -70,15 +77,17 @@ public class GameWatcherManager : MonoBehaviour {
 	}
 
 	public void Enable(string eventName, bool enable) {
-		if (!_eventMap.TryGetValue(eventName, out var watchers))
-			return;
+		if (!_eventMap.TryGetValue(eventName, out var watchers)) return;
 
 		foreach (var watcher in watchers) {
-			if (enable)
-				watcher.EnableCount++;
-			else
-				watcher.EnableCount--;
+			if (enable) watcher.EnableCount++;
+			else watcher.EnableCount--;
 		}
+	}
+
+	public static T Get<T>() where T : class, IWatcher {
+		return _instances.TryGetValue(typeof(T), out var watcher)
+			? (T)watcher : null;
 	}
 }
 

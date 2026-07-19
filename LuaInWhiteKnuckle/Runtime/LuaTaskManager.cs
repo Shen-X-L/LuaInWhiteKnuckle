@@ -8,11 +8,13 @@ using Coroutine = MoonSharp.Interpreter.Coroutine;
 namespace LuaInWhiteKnuckle.Runtime;
 
 public class LuaTask {
-	public Coroutine Coroutine;
-	public float ResumeTime;
-	public string DebugName;
-	public object[] StartArgs;
-	public bool Started;
+	public int Id;// task Id
+	public Coroutine Coroutine;// 实际函数
+	public float ResumeTime;// 运行时间
+	public string DebugName;// debug用名称
+	public object[] StartArgs;// 启动参数
+	public bool Started;// 是否启动
+	public bool IsKilled;// 是否强制停止
 }
 
 public class LuaTaskManager : MonoBehaviour {
@@ -22,11 +24,23 @@ public class LuaTaskManager : MonoBehaviour {
 	// 简单脚本的指令阈值, 压低到 2000 足以完成距离计算和物品发放
 	private const int MAX_INSTRUCTIONS_PER_FRAME = 2000;
 
-	// 任务列表和死任务列表
-	private Dictionary<string, LuaTask> _tasks = new Dictionary<string, LuaTask>();
-	private List<LuaTask> _deadList = new List<LuaTask>(16);
 
-	public List<string> TasksName { get { return new List<string>(_tasks.Keys); } }
+	private List<LuaTask> _tasks = new List<LuaTask>(); // 任务列表
+	private List<LuaTask> _deadList = new List<LuaTask>(16);// 结束任务列表
+
+	// 提取名字时去重即可
+	public List<string> TasksName {
+		get {
+			var names = new List<string>();
+			for (int i = 0; i < _tasks.Count; i++) 
+				if (!_tasks[i].IsKilled && !names.Contains(_tasks[i].DebugName))
+					names.Add(_tasks[i].DebugName);
+			
+			return names;
+		}
+	}
+
+	private int _nextTaskId;// 任务Id
 
 	#region[Task任务]
 
@@ -37,18 +51,17 @@ public class LuaTaskManager : MonoBehaviour {
 			return false;
 		}
 
-		if (_tasks.ContainsKey(debugName)) {
-			Plugin.Logger.LogWarning($"Lua任务 {debugName} 已存在");
-			return false;
-		}
-
-		_tasks[debugName] = new LuaTask {
+		_tasks.Add(new LuaTask {
+			Id = _nextTaskId,
 			Coroutine = luaCoroutine,
 			ResumeTime = 0f,
 			DebugName = debugName,
 			StartArgs = args,
-			Started= false
-		};
+			Started = false,
+			IsKilled = false,
+		});
+
+		++ _nextTaskId;
 
 		return true;
 	}
@@ -58,9 +71,8 @@ public class LuaTaskManager : MonoBehaviour {
 	/// </summary>
 	/// <param name="debugName"></param>
 	private void KillTaskImpl(string debugName) {
-		if (_tasks.Remove(debugName, out var task)) {
-			Plugin.Logger.LogInfo($"[脚本管理] 已手动终止脚本: {debugName}");
-		}
+		for (int i = 0; i < _tasks.Count; i++) 
+			if (_tasks[i].DebugName == debugName) _tasks[i].IsKilled = true;
 	}
 
 	public static void KillTask(string debugName) => Plugin.luaTaskManager.KillTaskImpl(debugName);
@@ -83,7 +95,6 @@ public class LuaTaskManager : MonoBehaviour {
 			if (chunk.Type == DataType.Function) {
 				// 创建协程
 				Coroutine luaCoroutine = script.CreateCoroutine(chunk).Coroutine;
-
 				// 加入管理队列
 				AddTask(luaCoroutine, debugName);
 			}
@@ -110,7 +121,6 @@ public class LuaTaskManager : MonoBehaviour {
 			return;
 		}
 		Coroutine coroutine = callback.OwnerScript.CreateCoroutine(callback).Coroutine;
-
 		AddTask(coroutine, debugName, args);
 	}
 
@@ -320,37 +330,35 @@ public class LuaTaskManager : MonoBehaviour {
 	#endregion
 
 	private void Update() {
-		if (_tasks.Count == 0) return;
+		int taskCount = _tasks.Count;
+		if (taskCount == 0) return;
 
 		float currentTime = Time.time;
-		_deadList.Clear();
 
-		foreach (var kvp in _tasks) {
-			var task = kvp.Value;
-
+		for (int i = 0; i < taskCount; i++) {
+			var task = _tasks[i];
+			// 已标记删除或结束
+			if (task.IsKilled || task.Coroutine.State == CoroutineState.Dead) continue;
+			// 协程等待时间未到
 			if (currentTime < task.ResumeTime) continue;
-
-			// 2. CPU 死循环防御: 每帧充能极少量的安全指令数
+			// CPU 死循环防御: 每帧充能极少量的安全指令数
 			task.Coroutine.AutoYieldCounter = MAX_INSTRUCTIONS_PER_FRAME;
 
 			DynValue result;
-
+			// 执行并获取结果
 			try {
 				if (!task.Started) {
 					task.Started = true;
 					result = task.Coroutine.Resume(task.StartArgs);
-				} else {
-					result = task.Coroutine.Resume();
-				}
+				} else result = task.Coroutine.Resume();
 			} catch (ScriptRuntimeException ex) {
 				Plugin.Logger.LogError($"[脚本执行错误] {task.DebugName}: {ex.DecoratedMessage}");
-				_deadList.Add(task);
+				task.IsKilled = true;
 				continue;
 			}
 
 			// 结束执行
 			if (task.Coroutine.State == CoroutineState.Dead) {
-				_deadList.Add(task);
 				continue;
 			}
 
@@ -359,24 +367,17 @@ public class LuaTaskManager : MonoBehaviour {
 				Plugin.Logger.LogError($"[沙箱控制] 脚本 {task.DebugName} 指令超限或疑似死循环");
 
 				// 视情况决定是否要调用 Plugin.safeLuaSandbox.InitSandbox() 重置全局环境
-				_deadList.Add(task);
+				task.IsKilled = true;
 				continue;
 			}
 
 			// 合法的协程挂起
-			if (task.Coroutine.State == CoroutineState.Suspended) {
-				if (result.Type == DataType.Number)
-					task.ResumeTime = currentTime + (float)result.Number;
-				else
-					task.ResumeTime = 0f;
-			}
+			if (task.Coroutine.State == CoroutineState.Suspended) 
+				task.ResumeTime = result.Type == DataType.Number 
+					? currentTime + (float)result.Number: 0f;
 		}
 
 		// 集中清理垃圾
-		if (_deadList.Count > 0) {
-			for (int i = 0; i < _deadList.Count; i++) {
-				_tasks.Remove(_deadList[i].DebugName);
-			}
-		}
+		_tasks.RemoveAll(t => t.IsKilled || t.Coroutine.State == CoroutineState.Dead);
 	}
 }
