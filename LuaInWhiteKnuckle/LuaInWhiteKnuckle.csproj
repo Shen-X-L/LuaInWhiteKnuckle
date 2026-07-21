@@ -31,13 +31,7 @@
 			<OutputDlls Include="$(OutputPath)**\*.dll" />
 		</ItemGroup>
 		<Copy SourceFiles="@(OutputDlls)" DestinationFolder="$(GamePath)\BepInEx\plugins\LuaInWK\" SkipUnchangedFiles="true" />
-
-		<!-- 2. 复制 LuaScript 文件夹 -->
-		<ItemGroup>
-			<LuaScriptFiles Include="$(ProjectDir)LuaScript\**\*.*" />
-		</ItemGroup>
-		<Copy SourceFiles="@(LuaScriptFiles)" DestinationFolder="$(GamePath)\BepInEx\plugins\LuaInWK\LuaScript\%(RecursiveDir)" SkipUnchangedFiles="true" />
-	</Target>
+</Target>
 
 
 	<ItemGroup>

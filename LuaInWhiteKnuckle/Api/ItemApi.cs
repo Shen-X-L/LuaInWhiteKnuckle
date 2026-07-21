@@ -73,22 +73,21 @@ public class ItemData {
 	}
 
 	// 物品名称
-	public string itemName {
+	public string name {
 		get => _item.itemName;
 		set => _item.itemName = value;
 	}
 	// 物品标签 (单一)
-	public string itemTag {
+	public string tag {
 		get => _item.itemTag;
 		set => _item.itemTag = value;
 	}
 	// 物品标签列表
-	public List<string> itemTags => _item.itemTags;
+	public List<string> tags => _item.itemTags;
 	// 预制体名称
-	public string prefabName => _item.prefabName;
 	public string prefab => _item.prefabName;
 	// 物品重量
-	public float itemWeight {
+	public float weight {
 		get => _item.itemWeight;
 		set => _item.itemWeight = value;
 	}
@@ -112,16 +111,8 @@ public class ItemData {
 		get => _item.worth;
 		set => _item.worth = value;
 	}
-	// 背包中的位置
-	public Vector3 bagPosition {
-		get => _item.GetDropObject().transform.localPosition;
-		set => _item.GetDropObject().transform.localPosition = value;
-	}
-	// 背包中的旋转
-	public Quaternion bagRotation {
-		get => _item.GetDropObject().transform.localRotation;
-		set => _item.GetDropObject().transform.localRotation = value;
-	}
+	// 背包中的坐标
+	public Transform bagTransform => _item.GetDropObject().transform;
 	// 是否在背包/手中
 	public bool inInventory => _item.inventory != null;
 	// 是否在背包中

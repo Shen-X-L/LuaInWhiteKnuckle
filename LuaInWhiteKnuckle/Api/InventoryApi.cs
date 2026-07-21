@@ -71,15 +71,14 @@ public class InventoryApi {
 		if (item == null) return;
 		if (count <= 0) return;
 		if (_inventory == null) return;
-		GameObject itemPrefab = CL_AssetManager.GetAssetGameObject(item.prefabName);
+		var itemPrefab = CL_AssetManager.GetItemObjectPrefab(item.prefabName);
 		if (itemPrefab == null) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Item prefab not found for prefab '{item.prefabName}'");
 			return;
 		}
 
 		for (int i = 0; i < count; i++) {
-			var pickupObj = GameObject.Instantiate(itemPrefab, new Vector3(0, 1, 0), Quaternion.identity);
-			var itemObject = pickupObj.GetComponent<Item_Object>();
+			var itemObject = GameObject.Instantiate(itemPrefab, new Vector3(0, 1, 0), Quaternion.identity);
 			_inventory.AddItemToInventoryCenter(itemObject.itemData);
 			itemObject.gameObject.SetActive(false);
 		}
@@ -93,15 +92,14 @@ public class InventoryApi {
 		if (count <= 0) return;
 		if (_inventory == null) return;
 
-		GameObject itemPrefab = CL_AssetManager.GetAssetGameObject(item);
+		var itemPrefab = CL_AssetManager.GetItemObjectPrefab(item);
 		if (itemPrefab == null) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Item prefab not found for prefab '{item}'");
 			return;
 		}
 
 		for (int i = 0; i < count; i++) {
-			var pickupObj = GameObject.Instantiate(itemPrefab, new Vector3(0, 1, 0), Quaternion.identity);
-			var itemObject = pickupObj.GetComponent<Item_Object>();
+			var itemObject = GameObject.Instantiate(itemPrefab, new Vector3(0, 1, 0), Quaternion.identity);
 			_inventory.AddItemToInventoryCenter(itemObject.itemData);
 			itemObject.gameObject.SetActive(false);
 		}
@@ -208,13 +206,12 @@ public class InventoryApi {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance or player is null");
 			return;
 		}
-		GameObject itemPrefab = CL_AssetManager.GetAssetGameObject(item);
+		var itemPrefab = CL_AssetManager.GetItemObjectPrefab(item);
 		if (itemPrefab == null) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Item prefab not found for prefab '{item}'");
 			return;
 		}
-		var pickupObj = GameObject.Instantiate(itemPrefab, new Vector3(0, 1, 0), Quaternion.identity);
-		var itemObject = pickupObj.GetComponent<Item_Object>();
+		var itemObject = GameObject.Instantiate(itemPrefab, new Vector3(0, 1, 0), Quaternion.identity);
 		_inventory.AddItemToHand(itemObject.itemData, handIndex);
 		itemObject.gameObject.SetActive(false);
 	}
@@ -273,7 +270,7 @@ public class InventoryApi {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Invalid pocket index {pocketIndex}");
 			return false;
 		}
-		GameObject itemPrefab = CL_AssetManager.GetAssetGameObject(item);
+		var itemPrefab = CL_AssetManager.GetItemObjectPrefab(item);
 		if (itemPrefab == null) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Item prefab not found for prefab '{item}'");
 			return false;
@@ -284,8 +281,7 @@ public class InventoryApi {
 			return false;
 		}
 		for (int i = 0; i < count; i++) {
-			var pickupObj = GameObject.Instantiate(itemPrefab, new Vector3(0, 1, 0), Quaternion.identity);
-			var itemObject = pickupObj.GetComponent<Item_Object>();
+			var itemObject = GameObject.Instantiate(itemPrefab, new Vector3(0, 1, 0), Quaternion.identity);
 			var itemData = itemObject.itemData;
 			// 添加到背包
 			_inventory.AddItemToInventoryScreen(Vector3.zero, itemData, localSpacePosition: false, useStoredValues: false, pushItems: false);
@@ -359,7 +355,7 @@ public class InventoryApi {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Invalid pouch index {pouchIndex}");
 			return false;
 		}
-		GameObject itemPrefab = CL_AssetManager.GetAssetGameObject(item);
+		var itemPrefab = CL_AssetManager.GetItemObjectPrefab(item);
 		if (itemPrefab == null) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Item prefab not found for prefab '{item}'");
 			return false;
@@ -370,8 +366,7 @@ public class InventoryApi {
 			return false;
 		}
 		for (int i = 0; i < count; i++) {
-			var pickupObj = GameObject.Instantiate(itemPrefab, new Vector3(0, 1, 0), Quaternion.identity);
-			var itemObject = pickupObj.GetComponent<Item_Object>();
+			var itemObject = GameObject.Instantiate(itemPrefab, new Vector3(0, 1, 0), Quaternion.identity);
 			pouch.AddItemToPouch(itemObject.itemData, false);
 			itemObject.gameObject.SetActive(false);
 		}
@@ -461,7 +456,7 @@ public class PouchData {
 	}
 
 	// 小袋中的物品
-	public List<Item> pouchItems => _pouch.pouchItems;
+	public List<Item> items => _pouch.pouchItems;
 	// 最大容量
 	public int maxCapacity {
 		get => _pouch.maxCapacity;

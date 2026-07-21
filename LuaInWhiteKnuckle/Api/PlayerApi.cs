@@ -209,7 +209,7 @@ public class PlayerApi {
 	// perk数组
 	public List<Perk> perks { get => _player.perks; }
 	// 添加perk
-	public Perk AddPerk(Perk perk, int stackAmount = 1, bool firstTime = true) => 
+	public Perk AddPerk(Perk perk, int stackAmount = 1, bool firstTime = true) =>
 		_player.AddPerk(perk, stackAmount, firstTime);
 	// 移除全部perk
 	public void RemoveAllPerks(bool forceRemoveAll = true) => _player.RemoveAllPerks(forceRemoveAll);
@@ -326,14 +326,14 @@ public class PlayerApi {
 	#region[运动学API]
 
 	// 位置向量
-	public Vector3 pos => _player.transform.position;
-	// 旋转四元数
-	public Quaternion rot => _player.transform.rotation;
+	public Transform transform => _player.transform;
 	// 速度向量
 	public Vector3 vel {
 		get => Patch_ENT_Player._velField(_player);
 		set => Patch_ENT_Player._velField(_player) = value;
 	}
+	// 检查是否在地面
+	public bool isGrounded => _player.IsGrounded();
 
 	/// <summary>
 	/// 消除速度向量中与V方向相同的分量 再施加力
@@ -348,6 +348,22 @@ public class PlayerApi {
 	public void SetDirectionalForce(float x, float y, float z) =>
 		_player.SetDirectionalForce(new Vector3(x, y, z));
 
+	/// <summary>
+	/// 施加力
+	/// </summary>
+	public void AddForce(Vector3 v, string source = "") => _player.AddForce(v, source);
+
+	/// <summary>
+	/// 施加力
+	/// </summary>
+	public void AddForce(float x, float y, float z, string source = "") => _player.AddForce(new Vector3(x, y, z), source);
+
+	/// <summary>
+	/// 传送玩家到指定位置
+	/// </summary>
+	/// <param name="pos"></param>
+	public void Teleport(Vector3 pos) => _player.Teleport(pos);
+
 	#endregion
 
 	#region[其他API]
@@ -356,6 +372,15 @@ public class PlayerApi {
 	/// 屏幕震动
 	/// </summary>
 	public void Shake(float strength) => CL_CameraControl.Shake(strength);
+
+	public RaycastHitData PlayerRaycast() {
+		if (Physics.Raycast(Camera.main.transform.position,
+							Camera.main.transform.forward,
+							out var hitInfo,
+							float.PositiveInfinity)) return new RaycastHitData(hitInfo);
+		return null;
+
+	}
 
 	#endregion
 
@@ -647,7 +672,7 @@ public static class Patch_ENT_Player {
 				if (!Plugin.safeLuaSandbox.Api.Hooks.Contains(HOOK_NAME)) return true;
 				// 获取Lua返回数据
 				var (canJumpBoostData, multData, isCancelled) =
-					ModHookBus.InvokeHook<(bool, float,bool)>(HOOK_NAME, canJumpBoost, mult);
+					ModHookBus.InvokeHook<(bool, float, bool)>(HOOK_NAME, canJumpBoost, mult);
 				// 本次跳跃取消
 				if (isCancelled) return false;
 				canJumpBoost = canJumpBoostData;
@@ -664,7 +689,7 @@ public static class Patch_ENT_Player {
 }
 
 [HarmonyPatch(typeof(ENT_Player.Hand))]
-public static class Patch_Hand{
+public static class Patch_Hand {
 
 	#region[玩家抓握HOOK]
 

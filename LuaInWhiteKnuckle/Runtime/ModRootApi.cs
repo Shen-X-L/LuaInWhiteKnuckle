@@ -131,8 +131,7 @@ public class ModEventBus {
 		}
 
 		// 清理空事件
-		if (listeners.Count == 0)
-			_listeners.Remove(eventName);
+		if (listeners.Count == 0) _listeners.Remove(eventName);
 	}
 
 	[MoonSharpHidden]
