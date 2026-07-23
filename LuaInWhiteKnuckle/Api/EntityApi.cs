@@ -39,6 +39,8 @@ public class GameEntityData {
 		get => _gameEntity?.name;
 		set => _gameEntity?.name = value;
 	}
+	// 生物坐标
+	public Transform transform { get => _gameEntity?.transform; }
 	// 当前生命值
 	public float health {
 		get => _gameEntity?.health ?? 0f;
@@ -63,7 +65,11 @@ public class GameEntityData {
 	// 是否死亡
 	public bool dead { get => _gameEntity?.dead ?? true; }
 	// 实际类型
-	public string typeName { get => _gameEntity.GetType().Name; }
+	public string typeName { get => _gameEntity?.GetType().Name; }
+	// 造成伤害
+	public void Damage(Damageable.DamageInfo info) => _gameEntity?.Damage(info);
+	// 击杀实体
+	public void Kill(string type)=>_gameEntity?.Kill(type);
 }
 
 [LuaData(typeof(DamageInfo))]

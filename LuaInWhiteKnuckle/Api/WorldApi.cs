@@ -3,7 +3,9 @@ using LuaInWhiteKnuckle.Registry;
 using LuaInWhiteKnuckle.Runtime;
 using MoonSharp.Interpreter;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace LuaInWhiteKnuckle.Api;
 
@@ -38,10 +40,10 @@ public class LevelData {
 	#region[基本信息]
 	// 关卡名称
 	public string name => _level.levelName;
-	// 关卡出口
-	public Transform exit => _level.GetLevelExit();
 	// 关卡入口
 	public Transform entrance => _level.GetLevelEntrance();
+	// 关卡出口
+	public Transform exit => _level.GetLevelExit();
 	// 玩家出生点
 	public Vector3 spawnPosition => _level.GetSpawnPosition();
 	// 介绍文本
@@ -70,6 +72,19 @@ public class LevelData {
 	}
 	// 标签列表
 	public List<string> tags => _level.tags;
+
+	// 获取房间全生物
+	public List<GameEntity> denizens => new List<GameEntity>(_level.transform.GetComponentsInChildren<Denizen>());
+
+	// 获取房间可拾取物
+	public List<GameEntity> props => new List<GameEntity>(_level.transform.GetComponentsInChildren<CL_Prop>());
+
+	// 获取房间道具
+	public List<GameEntity> items => _level.transform.GetComponentsInChildren<CL_Prop>()
+		.Where(c => c.transform != _level.transform)
+		.Where(c => c.GetComponent<Item_Object>() != null)
+		.Select(c => (GameEntity)c)  // 显式转换
+		.ToList();
 
 	#endregion
 }

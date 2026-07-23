@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Random = UnityEngine.Random;
 
 namespace LuaInWhiteKnuckle.Api;
 
@@ -346,4 +347,108 @@ public class PhysicsApi {
 			return new RaycastHitData(hit);
 		return null;
 	}
+}
+
+[LuaApi("Random")]
+[MoonSharpUserData]
+public class RandomApi {
+
+	#region [均匀分布 (Uniform Distribution)]
+
+	/// <summary>
+	/// 浮点数随机数 [min, max]
+	/// </summary>
+	public float Range(float min, float max) => Random.Range(min, max);
+
+	/// <summary>
+	/// 整数随机数 [minInclusive, maxExclusive)
+	/// </summary>
+	public int RangeInt(int minInclusive, int maxExclusive) => Random.Range(minInclusive, maxExclusive);
+
+	/// <summary>
+	/// 返回 0.0 到 1.0 之间的随机浮点数
+	/// </summary>
+	public float value => Random.value;
+
+	/// <summary>
+	/// 概率判定 (0 ~ 1)
+	/// 例如 Chance(0.3) 有 30% 概率返回 true
+	/// </summary>
+	public bool Chance(float probability) {
+		if (probability <= 0f) return false;
+		if (probability >= 1f) return true;
+		return Random.value < probability;
+	}
+
+	/// <summary>
+	/// 返回半径为 1 的单位球体内的随机点 (Vector3)
+	/// </summary>
+	public Vector3 insideUnitSphere => Random.insideUnitSphere;
+
+	/// <summary>
+	/// 返回半径为 1 的单位圆内的随机点 (Vector2 -> Vector3)
+	/// </summary>
+	public Vector3 insideUnitCircle => Random.insideUnitCircle;
+
+	/// <summary>
+	/// 返回半径为 1 的球面上的随机点 (Vector3)
+	/// </summary>
+	public Vector3 onUnitSphere => Random.onUnitSphere;
+
+	/// <summary>
+	/// 返回随机旋转角度 (Quaternion)
+	/// </summary>
+	public Quaternion rotation => Random.rotation;
+
+	#endregion
+
+	#region [正态分布 / 高斯分布 (Normal / Gaussian Distribution)]
+
+	/// <summary>
+	/// 标准正态分布 (Box-Muller 变换)
+	/// </summary>
+	/// <param name="mean">均值 (期望值/中心点，默认 0)</param>
+	/// <param name="stdDev">标准差 (偏差扩散程度，默认 1)</param>
+	/// <returns>符合正态分布的随机值</returns>
+	public float Gaussian(float mean = 0f, float stdDev = 1f) {
+		// 避免 log(0)
+		float u1 = 1.0f - Random.value;
+		float u2 = 1.0f - Random.value;
+
+		// Box-Muller 核心公式
+		float randStdNormal = Mathf.Sqrt(-2.0f * Mathf.Log(u1)) * Mathf.Sin(2.0f * Mathf.PI * u2);
+		return mean + stdDev * randStdNormal;
+	}
+
+	/// <summary>
+	/// 区间限制型正态分布 (Clamped Gaussian Range)
+	/// 在 [min, max] 区间内生成正态分布随机数，数值高度集中在 (min + max) / 2 中心点附近。
+	/// </summary>
+	/// <param name="min">最小值</param>
+	/// <param name="max">最大值</param>
+	/// <param name="sigmaFactor">标准差系数 (默认 3，即 99.73% 的概率落在 min~max 之间，超出部分会被 Clamp 截断)</param>
+	public float GaussianRange(float min, float max, float sigmaFactor = 3f) {
+		if (min >= max) return min;
+
+		float mean = (min + max) * 0.5f;
+		float stdDev = (max - min) / (2f * sigmaFactor);
+
+		float val = Gaussian(mean, stdDev);
+		// 截断边界，保证 100% 落在 [min, max] 范围内
+		return Mathf.Clamp(val, min, max);
+	}
+
+	/// <summary>
+	/// 正态分布 2D 散布点 (常用于枪械弹道散布、爆炸碎片散布)
+	/// 离中心点越近，落点概率越高
+	/// </summary>
+	public Vector3 GaussianCircle(float radius, float sigmaFactor = 3f) {
+		float angle = Random.Range(0f, Mathf.PI * 2f);
+		// 距离采用正态分布
+		float distance = GaussianRange(0f, radius, sigmaFactor);
+
+		return new Vector3(Mathf.Cos(angle) * distance, Mathf.Sin(angle) * distance, 0f);
+	}
+
+	#endregion
 }

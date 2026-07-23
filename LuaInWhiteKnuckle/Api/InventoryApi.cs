@@ -71,7 +71,7 @@ public class InventoryApi {
 		if (item == null) return;
 		if (count <= 0) return;
 		if (_inventory == null) return;
-		var itemPrefab = CL_AssetManager.GetItemObjectPrefab(item.prefabName);
+		var itemPrefab = CL_AssetManager.GetAssetGameObject(item.prefabName)?.GetComponent<Item_Object>();
 		if (itemPrefab == null) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Item prefab not found for prefab '{item.prefabName}'");
 			return;
@@ -92,7 +92,7 @@ public class InventoryApi {
 		if (count <= 0) return;
 		if (_inventory == null) return;
 
-		var itemPrefab = CL_AssetManager.GetItemObjectPrefab(item);
+		var itemPrefab = CL_AssetManager.GetAssetGameObject(item)?.GetComponent<Item_Object>();
 		if (itemPrefab == null) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Item prefab not found for prefab '{item}'");
 			return;
@@ -206,7 +206,7 @@ public class InventoryApi {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Inventory instance or player is null");
 			return;
 		}
-		var itemPrefab = CL_AssetManager.GetItemObjectPrefab(item);
+		var itemPrefab = CL_AssetManager.GetAssetGameObject(item)?.GetComponent<Item_Object>();
 		if (itemPrefab == null) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Item prefab not found for prefab '{item}'");
 			return;
@@ -270,13 +270,13 @@ public class InventoryApi {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Invalid pocket index {pocketIndex}");
 			return false;
 		}
-		var itemPrefab = CL_AssetManager.GetItemObjectPrefab(item);
+		var itemPrefab = CL_AssetManager.GetAssetGameObject(item)?.GetComponent<Item_Object>();
 		if (itemPrefab == null) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Item prefab not found for prefab '{item}'");
 			return false;
 		}
 		var pocket = _inventory.pockets[pocketIndex];
-		if (!pocket.pouch.CanAddItemToPouch(itemPrefab.GetComponent<Item_Object>().itemData)) {
+		if (!pocket.pouch.CanAddItemToPouch(itemPrefab.itemData)) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Cannot add item to pocket {pocketIndex}");
 			return false;
 		}
@@ -355,13 +355,13 @@ public class InventoryApi {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Invalid pouch index {pouchIndex}");
 			return false;
 		}
-		var itemPrefab = CL_AssetManager.GetItemObjectPrefab(item);
+		var itemPrefab = CL_AssetManager.GetAssetGameObject(item)?.GetComponent<Item_Object>();
 		if (itemPrefab == null) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Item prefab not found for prefab '{item}'");
 			return false;
 		}
 		var pouch = _inventory.extraPouches[pouchIndex];
-		if (!pouch.CanAddItemToPouch(itemPrefab.GetComponent<Item_Object>().itemData)) {
+		if (!pouch.CanAddItemToPouch(itemPrefab.itemData)) {
 			Plugin.LogError($"[LuaInWK] InventoryApi: Cannot add item to pouch {pouchIndex}");
 			return false;
 		}

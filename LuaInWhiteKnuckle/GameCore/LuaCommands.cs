@@ -8,8 +8,8 @@ namespace LuaInWhiteKnuckle.Game;
 
 public class LuaCommands {
 	public static void RegisterCommands() {
-		CommandConsole.BuildCommand("lua",ExecuteLuaCommand);
-		CommandConsole.BuildCommand("luafile",ExecuteLuaFileCommand)
+		CommandConsole.BuildCommand("lua", ExecuteLuaCommand);
+		CommandConsole.BuildCommand("luafile", ExecuteLuaFileCommand)
 			.AutocompleteCustom(autocomplete => { autocomplete.FromArray(Plugin.luaFileManager.LuaRelativePaths); });
 		CommandConsole.BuildCommand("luakill", KillLuaTaskCommand)
 			.AutocompleteCustom(autocomplete => { autocomplete.FromArray(Plugin.luaTaskManager.TasksName); });
@@ -23,8 +23,10 @@ public class LuaCommands {
 	}
 
 	public static void ExecuteLuaFileCommand(string[] luaFilePath) {
-		string luaScript = Plugin.luaFileManager.ReadLuaFile(string.Join(" ", luaFilePath));
-		LuaTaskManager.Execute(luaScript, luaFilePath[0]);
+		foreach (var path in luaFilePath) {
+			string luaScript = Plugin.luaFileManager.ReadLuaFile(path);
+			LuaTaskManager.Execute(luaScript, path);
+		}
 	}
 
 	public static void KillLuaTaskCommand(string[] luaTaskName) {

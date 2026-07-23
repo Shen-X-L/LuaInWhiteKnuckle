@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using static Perk;
-
 namespace LuaInWhiteKnuckle.Api;
 
 #region[API类]
@@ -29,7 +28,7 @@ public class PerkApi {
 		DefaultModFrame = defaultFrame;
 	}
 
-	public Dictionary<string, Perk> LuaPerks { get; } = new();
+	public IReadOnlyDictionary<string, Perk> LuaPerks => LuaPerkRegistry.LuaPerks;
 
 	/// <summary>
 	/// 提供给 Lua 调用的接口:动态创建一个纯 Buff 的自定义 Perk
@@ -79,7 +78,7 @@ public class PerkApi {
 		};
 		perk.buffMultiplier = 1f;
 
-		LuaPerks[id] = perk;
+		LuaPerkRegistry.RegisterTemplate(id, perk);
 
 		return perk;
 	}
@@ -90,20 +89,16 @@ public class PerkApi {
 	/// <param name="perkId"></param>
 	/// <returns></returns>
 	public Perk GetPerk(string perkId) {
-		if (LuaPerks.TryGetValue(perkId, out var perk))
-			return perk;
-		return CL_AssetManager.GetPerkAsset(perkId);
+		return LuaPerkRegistry.GetPerk(perkId);
 	}
-
-
 
 	/// <summary>
 	/// 给指定Perk添加模块
 	/// </summary>
 	/// <param name="perk"></param>
-	/// <param name="luaModuleTable"></param>
-	public void AddLuaModule(Perk perk, Table luaModuleTable) {
-		var csharpModule = PerkModule_Lua.CreateLuaPerkModule(luaModuleTable);
+	/// <param name="scriptId"></param>.
+	public void AddLuaModule(Perk perk, string scriptId) {
+		var csharpModule = new PerkModule_Lua(scriptId);
 
 		// 插入到原版 Perk 的模块列表中
 		perk.modules.Add(csharpModule);
@@ -111,7 +106,6 @@ public class PerkApi {
 
 	// 添加Perk
 	public void AddPerk(Perk perk) => ENT_Player.GetPlayer().AddPerk(perk);
-	
 
 	// 移除全部perk
 	public void RemoveAllPerks(bool forceRemoveAll = true) => ENT_Player.GetPlayer().RemoveAllPerks(forceRemoveAll);

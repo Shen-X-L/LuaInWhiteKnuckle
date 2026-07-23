@@ -41,11 +41,13 @@ public class LuaFileManager : IDisposable {
 		}
 	}
 
+	// 读取文件内容
 	public string ReadLuaFile(string relativePath) {
 		string fullPath = Path.Combine(_path, relativePath);
 		return File.ReadAllText(fullPath);
 	}
 
+	// 刷新缓存
 	private void RefreshCache() {
 		lock (_lock) {
 			try {
@@ -61,8 +63,15 @@ public class LuaFileManager : IDisposable {
 		}
 	}
 
+	// 清空监听
 	public void Dispose() {
 		_watcher?.Dispose();
+	}
+
+	// 后缀匹配
+	public string[] FilterBySuffix(string suffix) {
+		return _cachedPaths.Where(path => path.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+					.ToArray();
 	}
 }
 
