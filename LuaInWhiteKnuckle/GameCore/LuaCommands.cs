@@ -24,8 +24,8 @@ public class LuaCommands {
 
 	public static void ExecuteLuaFileCommand(string[] luaFilePath) {
 		foreach (var path in luaFilePath) {
-			string luaScript = Plugin.luaFileManager.ReadLuaFile(path);
-			LuaTaskManager.Execute(luaScript, path);
+			if (Plugin.luaFileManager.TryReadLuaFile(path,out var luaScript))
+				LuaTaskManager.Execute(luaScript, path);
 		}
 	}
 

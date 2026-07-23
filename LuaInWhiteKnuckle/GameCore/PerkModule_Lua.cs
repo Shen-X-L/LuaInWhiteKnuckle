@@ -18,7 +18,7 @@ public class PerkModule_Lua : PerkModule {
 
 		// Update接口
 		public readonly Closure update;// 每帧更新
-		public readonly float tick;// 更新间隔
+		public readonly float updateTick;// 更新间隔
 
 		// 生命周期接口
 		public readonly Closure initialize;// 初始化模块
@@ -27,8 +27,11 @@ public class PerkModule_Lua : PerkModule {
 
 		// 数据查询接口
 		public readonly Closure getCounterString;// 获取计数器文本 (显示在 Perk 图标下方)
+		public readonly float counterTick;// 获取计数器文本间隔 (防止每帧调用)
 		public readonly Closure getStatBuff;// 获取指定键的统计 Buff 值
+		public readonly float statTick;// 获取指定键的统计文本间隔 (防止每帧调用)
 		public readonly Closure getDescriptionFromKey;// 根据键名获取描述文本
+		public readonly float descriptionTick;// 获取指定键的描述文本间隔 (防止每帧调用)
 
 		// 序列化接口
 		public readonly Closure getSaveData;// 序列化生成保存文件
@@ -47,24 +50,34 @@ public class PerkModule_Lua : PerkModule {
 
 			if (moduleTable.Get("Update").Type == DataType.Function) {
 				update = moduleTable.Get("Update").Function;
-				var tickData = moduleTable.Get("tick");
-				tick = tickData.Type == DataType.Number ? Math.Max(tickData.ToObject<float>(), 0.01f) : 0.2f;
+				var tickData = moduleTable.Get("update_tick");
+				updateTick = tickData.Type == DataType.Number ? Math.Max(tickData.ToObject<float>(), 0.01f) : 0.2f;
 			}
 
 			var counterFunc = moduleTable.Get("GetCounterString").Type == DataType.Function
 				? moduleTable.Get("GetCounterString") : moduleTable.Get("Counter");
-			if (counterFunc.Type == DataType.Function) 
+			if (counterFunc.Type == DataType.Function) {
 				getCounterString = counterFunc.Function;
+				var tickData = moduleTable.Get("counter_tick");
+				counterTick = tickData.Type == DataType.Number ? Math.Max(tickData.ToObject<float>(), 0.2f) : 1f;
+			}
 
 			var statFunc = moduleTable.Get("GetStatBuff").Type == DataType.Function
 				? moduleTable.Get("GetStatBuff") : moduleTable.Get("Stat");
-			if (statFunc.Type == DataType.Function) 
+			if (statFunc.Type == DataType.Function) {
 				getStatBuff = statFunc.Function;
+				var tickData = moduleTable.Get("stat_tick");
+				statTick = tickData.Type == DataType.Number ? Math.Max(tickData.ToObject<float>(), 0.2f) : 1f;
 
-			var descFunc = moduleTable.Get("GetGetDescriptionFromKey").Type == DataType.Function
-				? moduleTable.Get("GetGetDescriptionFromKey") : moduleTable.Get("Description");
-			if (descFunc.Type == DataType.Function) 
+			}
+
+			var descFunc = moduleTable.Get("GetDescriptionFromKey").Type == DataType.Function
+				? moduleTable.Get("GetDescriptionFromKey") : moduleTable.Get("Description");
+			if (descFunc.Type == DataType.Function) {
 				getDescriptionFromKey = descFunc.Function;
+				var tickData = moduleTable.Get("description_tick");
+				descriptionTick = tickData.Type == DataType.Number ? Math.Max(tickData.ToObject<float>(), 0.2f) : 1f;
+			}
 
 			if (moduleTable.Get("GetSaveData").Type == DataType.Function) 
 				getSaveData = moduleTable.Get("GetSaveData").Function;
@@ -80,13 +93,23 @@ public class PerkModule_Lua : PerkModule {
 	// 类标签 用于定位类
 	[SerializeField] 
 	private string scriptId;
+	private bool _isBroken = false;// 是否损坏并不进行更新
+	private bool _initialized = false;// 是否初始化
 
 	private ClosuresCache _closuresCache;     // Lua函数缓存
+
 	private Closure _update;
-	private float _tick;
-	private bool _isBroken = false;// 是否损坏并不进行更新
-	private float _time;// 更新计时器
-	private bool _initialized = false;// 是否初始化
+	private float _updateTick;
+	private float _updateTime;// Update更新计时器
+	private float _counterTime;// GetCounterString更新计时器
+	private string _counterCache;// GetCounterString结果缓存
+	
+	// Stat 依赖 (key, total)，使用 Dictionary 存储 (缓存值, 到期时间)
+	private Dictionary<(string key, bool total), (float value, float expireTime)> _statCacheDict;
+
+	// Description 依赖 key，使用 Dictionary 存储 (缓存值, 到期时间)
+	private Dictionary<string, (string value, float expireTime)> _descCacheDict;
+
 
 	#endregion
 
@@ -111,7 +134,7 @@ public class PerkModule_Lua : PerkModule {
 				_isBroken = false;
 			} else {
 				_isBroken = true;
-				Debug.LogError($"[PerkModule_Lua] 致命错误：无法绑定模块 [{scriptId}]");
+				Debug.LogError($"[PerkModule_Lua] 致命错误: 无法绑定模块 [{scriptId}]");
 			}
 		}
 	}
@@ -129,9 +152,19 @@ public class PerkModule_Lua : PerkModule {
 		base.Initialize(p, firstTime);
 		EnsureBound();
 		if (_closuresCache.update != null) {
-			_time = Time.time;
 			_update = _closuresCache.update;
-			_tick = _closuresCache.tick;
+			_updateTick = _closuresCache.updateTick;
+			_updateTime = Time.time;
+		}
+		if (_closuresCache.getCounterString != null) {
+			_counterTime = Time.time;
+			_counterCache = "";
+		}
+		if (_closuresCache.getStatBuff != null) {
+			_statCacheDict = new();
+		}
+		if (_closuresCache.getDescriptionFromKey != null) {
+			_descCacheDict = new();
 		}
 		if (_initialized) return;
 		_initialized = true;
@@ -157,11 +190,11 @@ public class PerkModule_Lua : PerkModule {
 		// 没有更新函数
 		if (_isBroken || _update == null || !_initialized) return;
 		// 未到触发时间
-		if (_time > Time.time) return;
+		if (_updateTime > Time.time) return;
 		_isBroken = !LuaTaskManager.InvokeFast(_update);
 		if (_isBroken) Plugin.LogDebug($"[LuaInWK] PerkModule_Lua.Update: {name} 执行错误,以关闭全部模块");
 		// 设置新触发时间
-		_time = Time.time + _tick;
+		_updateTime = Time.time + _updateTick;
 	}
 
 	/// <summary>
@@ -176,7 +209,7 @@ public class PerkModule_Lua : PerkModule {
 
 	#endregion
 
-	#region [虚方法 - 读写档]
+	#region [虚方法 - 读存档]
 
 	/// <summary>
 	/// 进行存档数据保存
@@ -224,7 +257,10 @@ public class PerkModule_Lua : PerkModule {
 	/// <returns>计数器字符串, 默认返回空字符串</returns>
 	public override string GetCounterString() {
 		if (_isBroken || _closuresCache == null || _closuresCache.getCounterString == null) return "";
-		return LuaTaskManager.InvokeSync<string>(_closuresCache.getCounterString, $"{name}_getCounterString");
+		if (_counterTime > Time.time) return _counterCache;
+		_counterCache = LuaTaskManager.InvokeSync<string>(_closuresCache.getCounterString, $"{name}_getCounterString");
+		_counterTime = Time.time + _closuresCache.counterTick;
+		return _counterCache;
 	}
 
 	/// <summary>
@@ -235,7 +271,20 @@ public class PerkModule_Lua : PerkModule {
 	/// <returns>统计值, 默认返回 NaN (表示未找到)</returns>
 	public override float GetStatBuff(string key, bool total = false) {
 		if (_isBroken || _closuresCache == null || _closuresCache.getStatBuff == null) return float.NaN;
-		return LuaTaskManager.InvokeSync<float>(_closuresCache.getStatBuff, $"{name}_getStatBuff", key, total);
+
+		var cacheKey = (key, total);
+		float currentTime = Time.time;
+
+		// 检查当前 Key 是否已有未过期的缓存
+		if (_statCacheDict.TryGetValue(cacheKey, out var cache)) 
+			if (cache.expireTime > currentTime) 
+				return cache.value; // 直接返回该 Key 专属的缓存
+		
+		// 缓存失效或首次获取 调用 Lua
+		float newValue = LuaTaskManager.InvokeSync<float>(_closuresCache.getStatBuff, $"{name}_getStatBuff", key, total);
+		// 更新该 Key 的缓存与过期时间
+		_statCacheDict[cacheKey] = (newValue, currentTime + _closuresCache.statTick);
+		return newValue;
 	}
 
 	/// <summary>
@@ -245,10 +294,26 @@ public class PerkModule_Lua : PerkModule {
 	/// <returns>描述文本, 默认返回空字符串</returns>
 	public override string GetDescriptionFromKey(string key) {
 		if (_isBroken || _closuresCache == null || _closuresCache.getDescriptionFromKey == null) return "";
-		return LuaTaskManager.InvokeSync<string>(
+
+		float currentTime = Time.time;
+
+		// 检查当前 Key 是否已有未过期的缓存
+		if (_descCacheDict.TryGetValue(key, out var cache)) {
+			if (cache.expireTime > currentTime) {
+				return cache.value;
+			}
+		}
+
+		// 调用 Lua 获取描述
+		string newValue = LuaTaskManager.InvokeSync<string>(
 			_closuresCache.getDescriptionFromKey,
 			$"{name}_getDescriptionFromKey",
 			key);
+
+		// 更新该 Key 的缓存
+		_descCacheDict[key] = (newValue, currentTime + _closuresCache.descriptionTick);
+
+		return newValue;
 	}
 
 	#endregion

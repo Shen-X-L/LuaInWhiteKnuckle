@@ -340,7 +340,7 @@ public class PhysicsApi {
 	/// </summary>
 	/// <param name="origin">起点</param>
 	/// <param name="direction">方向</param>
-	/// <param name="maxDistance">可选：最大检测距离，默认 1000 米</param>
+	/// <param name="maxDistance">可选: 最大检测距离，默认 1000 米</param>
 	/// <returns>击中时返回 RaycastHitData 实例，未击中返回 null (Lua 端为 nil)</returns>
 	public RaycastHitData Raycast(Vector3 origin, Vector3 direction, float maxDistance = 1000f) {
 		if (Physics.Raycast(origin, direction, out RaycastHit hit, maxDistance)) 

@@ -1,4 +1,5 @@
-﻿using LuaInWhiteKnuckle.Game;
+﻿using HarmonyLib;
+using LuaInWhiteKnuckle.Game;
 using LuaInWhiteKnuckle.Runtime;
 using MoonSharp.Interpreter;
 using System;
@@ -14,13 +15,13 @@ public static class LuaPerkRegistry {
 	/// 场景重启或沙箱清空时调用
 	/// </summary>
 	public static void Clear() {
-		// 销毁 ScriptableObject 内存实例[cite: 9]
-		foreach (var kvp in _luaPerkTemplates)
-			if (kvp.Value != null)
-				GameObject.Destroy(kvp.Value);
+		// 销毁 ScriptableObject 实例
+		//foreach (var kvp in _luaPerkTemplates)
+		//	if (kvp.Value != null)
+		//		GameObject.Destroy(kvp.Value);
 
-		// 清空缓存
-		_luaPerkTemplates.Clear();
+		//// 清空缓存
+		//_luaPerkTemplates.Clear();
 		_moduleCache.Clear();
 	}
 
@@ -41,11 +42,11 @@ public static class LuaPerkRegistry {
 			return null;
 		}
 
-		// 命中缓存：直接返回
+		// 命中缓存: 直接返回
 		if (_moduleCache.TryGetValue(scriptId, out var cachedTable)) 
 			return cachedTable;
 
-		// 未命中缓存：触发按需文件加载
+		// 未命中缓存: 触发按需文件加载
 		Table loadedTable = LoadModuleFromDisk(scriptId);
 		if (loadedTable != null) {
 			_moduleCache[scriptId] = loadedTable; // 写入缓存
@@ -73,27 +74,26 @@ public static class LuaPerkRegistry {
 		string relativePath = matchedPaths[0];
 
 		try {
-			// 1. 通过 LuaFileManager 安全读取文件内容 (与 FileSystemWatcher 监听联动)
-			string luaCode = Plugin.luaFileManager.ReadLuaFile(relativePath);
-			if (string.IsNullOrEmpty(luaCode)) {
+			// 通过 LuaFileManager 安全读取文件内容 (与 FileSystemWatcher 监听联动)
+			if (!Plugin.luaFileManager.TryReadLuaFile(relativePath,out var luaScript)) {
 				Plugin.LogError($"[PerkRegistry] 脚本文件内容为空: [{relativePath}]");
 				return null;
 			}
 
 			Script script = Plugin.safeLuaSandbox.GetScript();
 
-			// 2. 使用安全包装：将脚本编译为匿名函数,避免顶层执行代码绕过指令拦截
-			DynValue chunk = script.DoString($"return function()\n{luaCode}\nend");
+			// 使用安全包装: 将脚本编译为匿名函数,避免顶层执行代码绕过指令拦截
+			DynValue chunk = script.DoString($"return function()\n{luaScript}\nend");
 			if (chunk.Type != DataType.Function) {
 				Plugin.LogError($"[PerkRegistry] 编译脚本失败: [{scriptId}]");
 				return null;
 			}
 
-			// 3. 通过 LuaTaskManager 执行编译块,享用指令超限熔断保护
+			// 通过 LuaTaskManager 执行编译块,享用指令超限熔断保护
 			DynValue moduleResult = LuaTaskManager.InvokeSyncFast(chunk.Function);
 			if (moduleResult == null || moduleResult.IsNil()) return null;
 
-			// 4. 处理返回结果 (Table 或 Factory Function)
+			// 处理返回结果 (Table 或 Factory Function)
 			Table moduleTable = null;
 
 			if (moduleResult.Type == DataType.Table) {
@@ -126,7 +126,7 @@ public static class LuaPerkRegistry {
 
 	#region[perk 注册]
 
-	// 静态字典：生命周期贯穿整个游戏运行期，场景切换不丢失
+	// 静态字典: 生命周期贯穿整个游戏运行期，场景切换不丢失
 	private static readonly Dictionary<string, Perk> _luaPerkTemplates = new();
 
 	public static IReadOnlyDictionary<string, Perk> LuaPerks => _luaPerkTemplates;
@@ -142,10 +142,33 @@ public static class LuaPerkRegistry {
 	/// 获取 Perk 模板（如果找不到则去原版 AssetManager 找）[cite: 9]
 	/// </summary>
 	public static Perk GetPerk(string perkId) {
-		if (_luaPerkTemplates.TryGetValue(perkId, out var perk))
-			return perk;
+		if (_luaPerkTemplates.TryGetValue(perkId, out var perk)) return perk;
 		return CL_AssetManager.GetPerkAsset(perkId); // 回退到原版[cite: 9]
 	}
 
+	/// <summary>
+	/// 获取 Perk 模板（如果找不到则去原版 AssetManager 找）[cite: 9]
+	/// </summary>
+	public static Perk GetLuaPerk(string perkId) {
+		if (_luaPerkTemplates.TryGetValue(perkId, out var perk)) return perk;
+		return null; // 回退到原版[cite: 9]
+	}
+
 	#endregion
+}
+
+[HarmonyPatch(typeof(CL_AssetManager), nameof(CL_AssetManager.GetPerkAsset))]
+public static class Patch_CL_AssetManager_GetPerkAsset {
+	[HarmonyPrefix]
+	public static bool Prefix(string id, ref Perk __result) {
+		if (string.IsNullOrEmpty(id)) return true;
+		Plugin.LogTest(id);
+		Perk luaPerk = LuaPerkRegistry.GetLuaPerk(id);
+		if (luaPerk != null) {
+			__result = luaPerk;
+			return false; // 阻止原方法继续执行
+		}
+
+		return true; // 继续执行原版逻辑
+	}
 }

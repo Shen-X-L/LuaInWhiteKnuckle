@@ -62,8 +62,8 @@ public class Plugin : BaseUnityPlugin {
 	/// 当一个新场景被加载时触发
 	/// </summary>
 	private static void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
-		if (scene.name == "Game-Main" || scene.name == "Playground") {
-			Logger.LogInfo($"[场景监听]检测到进入主游戏场景 '{scene.name}', 开始初始化全新的 Lua 沙箱...");
+		if (scene.name == "Game-Main" || scene.name == "Playground" || scene.name == "Main-Menu") {
+			Logger.LogInfo($"[场景监听] 进入主游戏场景 '{scene.name}', 开始初始化全新的 Lua 沙箱...");
 			if (!_isInitialized) {
 				_isInitialized = true;
 				GameObject singleton = new GameObject("LuaRootObject");
@@ -82,8 +82,9 @@ public class Plugin : BaseUnityPlugin {
 				CommandConsole.hasCheated = true;
 			}
 			gameWatcherManager.enabled = true;
+			safeLuaSandbox.ExecuteMainScript(scene.name);
 		} else {
-			Logger.LogInfo($"[场景监听]检测到退出主游戏场景 '{scene.name}', 开始强制销毁并清空 Lua 沙箱...");
+			Logger.LogInfo($"[场景监听] 退出主游戏场景 '{scene.name}', 开始强制销毁并清空 Lua 沙箱...");
 			safeLuaSandbox.CloseSandbox();
 			if (_isInitialized){
 				gameWatcherManager.enabled = false;

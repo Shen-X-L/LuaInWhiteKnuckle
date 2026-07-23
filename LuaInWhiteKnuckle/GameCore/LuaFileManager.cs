@@ -42,9 +42,14 @@ public class LuaFileManager : IDisposable {
 	}
 
 	// 读取文件内容
-	public string ReadLuaFile(string relativePath) {
+	public bool TryReadLuaFile(string relativePath,out string luaScript) {
 		string fullPath = Path.Combine(_path, relativePath);
-		return File.ReadAllText(fullPath);
+		if (File.Exists(fullPath)) {
+			luaScript = File.ReadAllText(fullPath);
+			return true;
+		}
+		luaScript = null;
+		return false;
 	}
 
 	// 刷新缓存

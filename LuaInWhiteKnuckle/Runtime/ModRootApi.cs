@@ -178,8 +178,7 @@ public class ModHookBus {
 	/// <param name="args">传递给 Lua 回调的参数</param>
 	[MoonSharpHidden]
 	public T Invoke<T>(string hookName, params object[] args) {
-		if (!_hooks.TryGetValue(hookName, out var hook))
-			return default;
+		if (!_hooks.TryGetValue(hookName, out var hook)) return default;
 
 		// 调用 TaskManager 的同步安全执行方法, 而不是直接 Call
 		DynValue result = LuaTaskManager.InvokeSync(hook.Callback, hook.Id, args);
