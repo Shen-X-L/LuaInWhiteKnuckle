@@ -3,11 +3,11 @@
 -- Inventory.RemoveExtraPouch()
 -- local pouches = Inventory.extraPouches
 -- for i=0,pouches.Count-1,1 do
---     print(pouches[i].maxCapacity 
---         .. " " .. pouches[i].maxLargeCapacity 
+--     print(pouches[i].maxCapacity
+--         .. " " .. pouches[i].maxLargeCapacity
 --         .. " ".. tostring(pouches[i].allowNonPouchable))
 --     pouches[i].allowNonPouchable = true
---     pouches[i].maxLargeCapacity = pouches[i].maxCapacity 
+--     pouches[i].maxLargeCapacity = pouches[i].maxCapacity
 -- end
 -- 口袋测试
 -- Inventory.AddPocketItem(0, "Item_Piton", 1)
@@ -19,28 +19,27 @@
 -- local position = left_item.bagPosition
 -- local rotation = left_item.bagRotation
 -- print("x: " .. position.x .. "y: " .. position.y .. "z: " .. position.z)
--- print("w: " .. rotation.w .. "x: " .. rotation.x 
+-- print("w: " .. rotation.w .. "x: " .. rotation.x
 --     .. "y: " .. rotation.y .. "z: " .. rotation.z)
 -- print()
 -- local position = right_item.bagPosition
 -- local rotation = right_item.bagRotation
 -- print("x: " .. position.x .. "y: " .. position.y .. "z: " .. position.z)
--- print("w: " .. rotation.w .. "x: " .. rotation.x 
+-- print("w: " .. rotation.w .. "x: " .. rotation.x
 --     .. "y: " .. rotation.y .. "z: " .. rotation.z)
 -- left_item.bagPosition= Vector3.zero
 -- 手部物品测试
-Inventory.AddHandItem("Item_AutoPiton", 0)
-Inventory.AddHandItem("Item_AutoPiton", 1)
 -- Inventory.RemoveHandItem(0)
 -- Inventory.RemoveHandItem(1)
-Game.Events.Off("OnHandItemChange", "ItemTest")
-Game.Events.On("OnHandItemChange", "ItemTest",
-               function(handIndex, lastItem, currentItem)
-    if currentItem == nil then
-        if handIndex == 0 then Inventory.AddHandItem("Item_AutoPiton", 0) end
-        if handIndex == 1 then Inventory.AddHandItem("Item_AutoPiton", 1) end
-    end
-end)
+-- Game.Events.Off("OnHandItemChange", "ItemTest")
+-- Game.Events.On("OnHandItemChange", "ItemTest",
+--                function(handIndex, lastItem, currentItem)
+--     if currentItem == nil then
+--         if handIndex == 0 then Inventory.AddHandItem("Item_AutoPiton", 0) end
+--         if handIndex == 1 then Inventory.AddHandItem("Item_AutoPiton", 1) end
+--     end
+-- end)
+
 
 -- Inventory.AddHandItem("Item_Wine", 0)
 -- Inventory.AddHandItem("Item_Wine", 1)
@@ -54,3 +53,17 @@ end)
 --             .." lastItem: "..(lastItem and lastItem.prefabName or "None")
 --             .." currentItem: "..(currentItem and currentItem.prefabName or "None"))
 -- end)
+
+-- local bean = Inventory.GetItemByPrefab("Item_Beans")
+-- bean.weight = -1000
+
+-- local newBuff = BuffContainerData("addBigCapacity", "addBigCapacity")
+-- newBuff.loseOverTime = false
+-- newBuff.AddBuff("addPocketBigItemCapacity", 100)
+-- newBuff.AddBuff("addPocketCapacity", 100)
+-- Player.AddBuffContainer(newBuff)
+
+local items = Inventory.GetItems()
+for i=0,items.Count-1 do
+    com_print(items[i].prefab)
+end
