@@ -125,7 +125,7 @@ public class PerkModule_Lua : PerkModule {
 	/// </summary>
 	private void EnsureBound() {
 		if (_closuresCache == null && !string.IsNullOrEmpty(scriptId)) {
-			// 如果缓存里有, 直接拿缓存;没有, 自动去读 Perks/{scriptId}.lua 并放入缓存
+			// 如果缓存里有, 直接拿缓存;没有, 自动去读 PerkModules/{scriptId}.lua 并放入缓存
 			Table currentTable = LuaPerkRegistry.GetModule(scriptId);
 
 			if (currentTable != null) {

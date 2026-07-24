@@ -60,7 +60,7 @@ public static class LuaPerkRegistry {
 	/// 从磁盘物理文件动态加载 Lua 脚本
 	/// </summary>
 	private static Table LoadModuleFromDisk(string scriptId) {
-		var matchedPaths = Plugin.luaFileManager.FilterBySuffix(Path.Combine("Perks", $"{scriptId}.lua"));
+		var matchedPaths = Plugin.luaFileManager.FilterBySuffix(Path.Combine("PerkModules", $"{scriptId}.lua"));
 
 		if (matchedPaths == null || matchedPaths.Length == 0) {
 			Plugin.LogError($"[PerkRegistry] 脚本 [{scriptId}] 未找到");

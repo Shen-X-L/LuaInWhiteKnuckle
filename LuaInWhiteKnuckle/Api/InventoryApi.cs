@@ -198,6 +198,11 @@ public class InventoryApi {
 	}
 
 	/// <summary>
+	/// 获取手中物品
+	/// </summary>
+	public Item GetHandItem(int index) =>_inventory.itemHands[index].currentItem;
+	
+	/// <summary>
 	/// 添加物品到手中
 	/// </summary>
 	public void AddHandItem(string item, int handIndex) {

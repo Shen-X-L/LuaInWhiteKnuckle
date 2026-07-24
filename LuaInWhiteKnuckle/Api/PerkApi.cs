@@ -105,7 +105,7 @@ public class PerkApi {
 	}
 
 	// 添加Perk
-	public void AddPerk(Perk perk) => ENT_Player.GetPlayer().AddPerk(perk);
+	public void AddPerk(Perk perk) => ENT_Player.GetPlayer()?.AddPerk(perk);
 
 	// 移除全部perk
 	public void RemoveAllPerks(bool forceRemoveAll = true) => ENT_Player.GetPlayer().RemoveAllPerks(forceRemoveAll);
