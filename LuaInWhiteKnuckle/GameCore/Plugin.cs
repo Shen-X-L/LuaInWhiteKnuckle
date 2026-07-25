@@ -15,7 +15,7 @@ namespace LuaInWhiteKnuckle.Game;
 public class Plugin : BaseUnityPlugin {
 	public const string PLUGIN_GUID = "shenxl.LuaInWK";
 	public const string PLUGIN_NAME = "Lua in White Knuckle";
-	public const string PLUGIN_VERSION = "0.12.0";
+	public const string PLUGIN_VERSION = "0.13.0";
 	// 沙箱
 	public static SafeLuaSandbox safeLuaSandbox = new SafeLuaSandbox();
 	// 脚本文件管理器

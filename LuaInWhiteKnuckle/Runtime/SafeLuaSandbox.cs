@@ -7,6 +7,7 @@ using System;
 using System.IO;
 using System.Text;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 
 namespace LuaInWhiteKnuckle.Runtime;
@@ -50,6 +51,10 @@ public class SafeLuaSandbox {
 		_includeGuard.Clear();
 		// 注册给 MoonSharp / Lua 的 include 函数
 		_env.Globals["include"] = (Action<string>)((filePath) => {
+			if (SceneManager.GetActiveScene().name == "Game-Main") {
+				CommandConsole.cheatsEnabled = true;
+				CommandConsole.hasCheated = true;
+			}
 			// 尝试获取安全 Execute 权限
 			using (var handle = _includeGuard.TryInclude(filePath, out string error)) {
 				if (!string.IsNullOrEmpty(error)) {

@@ -14,18 +14,33 @@ namespace LuaInWhiteKnuckle.Api;
 [MoonSharpUserData]
 public class ItemApi {
 	/// <summary>
-	/// 通过 预制体名称 创建物品
+	/// 通过预制体名称获取并克隆一个全新的物品实例
 	/// </summary>
-	/// <param name="prefabName"></param>
-	/// <returns></returns>
-	public Item GetItem(string prefabName) {
-		GameObject itemPrefab = CL_AssetManager.GetAssetGameObject(prefabName);
-		var item = itemPrefab.GetComponent<Item_Object>()?.itemData;
-		if (item == null) {
-			Plugin.LogError($"[LuaInWK] ItemApi: Item data not found for prefab '{prefabName}'");
+	/// <param name="prefabName">预制体资源名称</param>
+	/// <returns>深拷贝后的 Item 实例，若未找到则返回 null</returns>
+	public static Item GetItem(string prefabName) {
+		// 参数防御校验
+		if (string.IsNullOrEmpty(prefabName)) {
+			Plugin.LogWarning("[LuaInWK] ItemApi.GetItem: prefabName is null or empty.");
 			return null;
 		}
-		return item;
+
+		// 双重检测获取 Item_Object 组件
+		Item_Object itemObject = null;
+		// 优先使用专用的 Item_Object 查找机制
+		Item_Object itemPrefab = CL_AssetManager.GetItemObjectPrefab(prefabName);
+		if (itemPrefab == null) {
+			// 备用：从通用 GameObject 中获取组件
+			GameObject go = CL_AssetManager.GetAssetGameObject(prefabName);
+			itemPrefab = go?.GetComponent<Item_Object>();
+		}
+		if (itemObject == null || itemObject.itemData == null) {
+			Plugin.LogError($"[LuaInWK] ItemApi: Item_Object or itemData not found for prefab '{prefabName}'");
+			return null;
+		}
+
+		// 返回深拷贝实例，防止运行时修改影响预制体模板
+		return itemObject.itemData.GetClone();
 	}
 
 	/// <summary>
@@ -34,10 +49,12 @@ public class ItemApi {
 	/// <param name="prefabName"></param>
 	/// <returns></returns>
 	public bool isItemExist(string prefabName) {
-		GameObject itemPrefab = CL_AssetManager.GetAssetGameObject(prefabName);
-		var item = itemPrefab.GetComponent<Item_Object>()?.itemData; 
-		itemPrefab = null;
-		return item != null;
+		Item_Object itemPrefab1 = CL_AssetManager.GetItemObjectPrefab(prefabName);
+		var item1 = itemPrefab1?.itemData;
+		if (item1 != null) return true;
+		GameObject itemPrefab2 = CL_AssetManager.GetAssetGameObject(prefabName);
+		var item2 = itemPrefab2?.GetComponent<Item_Object>()?.itemData; 
+		return item2 != null;
 	}
 }
 
