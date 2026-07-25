@@ -49,6 +49,7 @@ public class ItemApi {
 	/// <param name="prefabName"></param>
 	/// <returns></returns>
 	public bool isItemExist(string prefabName) {
+		if (string.IsNullOrEmpty(prefabName)) return false;
 		Item_Object itemPrefab1 = CL_AssetManager.GetItemObjectPrefab(prefabName);
 		var item1 = itemPrefab1?.itemData;
 		if (item1 != null) return true;

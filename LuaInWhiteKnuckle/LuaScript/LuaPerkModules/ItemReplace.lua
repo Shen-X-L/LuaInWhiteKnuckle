@@ -15,7 +15,7 @@
 --   ItemReplace:hand0:tag:explosive:Item_Rebar_Explosive
 --     → 左手装备有explosive标签的物品时,替换为爆炸钢筋
 --
---   ItemReplace:hand1:prefab:Item_Piton:Item_Auto_Piton
+--   ItemReplace:hand1:name:Item_Piton:Item_Auto_Piton
 --     → 右手装备旧岩钉时,替换为新岩钉
 -- ============================================================
 
@@ -61,7 +61,6 @@ local function ParseTag(tag)
 
     -- 检查替换目标物品是否存在
     if not IsItemExist(replaceItem) then return nil end
-
     -- 预解析匹配值，避免每次匹配时分割字符串
     local values = {}
     for v in matchValue:gmatch("([^,]+)") do
@@ -109,6 +108,7 @@ end
 --- C# 回调参数: handIndex(数字), lastItem, currentItem
 local function OnHandItemChange(handIndex, lastItem, currentItem)
     for _, rule in ipairs(M.rules) do
+
         -- 槽位匹配: rule.slot == -1(all) 或相同数字
         if rule.slot == M.slotAll or rule.slot == handIndex then
             if MatchItem(currentItem, rule) then
@@ -132,10 +132,6 @@ function M.Initialize(perk, firstTime)
         local rule = ParseTag(perk.tags[i])
         if rule then
             table.insert(M.rules, rule)
-            print(string.format("[ItemReplace] 规则生效: %s %s -> %s",
-                rule.slot == M.slotAll and "all" or "hand" .. rule.slot,
-                rule.matchType,
-                rule.replaceItem))
         end
     end
 

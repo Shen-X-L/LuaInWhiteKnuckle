@@ -44,8 +44,8 @@ end
 local function ParseTag(tag)
     -- 尝试匹配: ItemAdd:ItemID:Count
     local itemId, countStr = tag:match("^ItemAdd:([^:]+):(%d+)$")
-    
-    if IsItemExist(itemId) then
+
+    if itemId and countStr and IsItemExist(itemId) then
         return {
             itemId = itemId,
             count = tonumber(countStr)
@@ -54,7 +54,7 @@ local function ParseTag(tag)
     
     -- 尝试匹配: ItemAdd:ItemID (无数量,默认1)
     itemId = tag:match("^ItemAdd:([^:]+)$")
-    if IsItemExist(itemId) then
+    if itemId and IsItemExist(itemId) then
         return {
             itemId = itemId,
             count = 1
