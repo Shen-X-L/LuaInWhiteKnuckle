@@ -358,10 +358,8 @@ public class LuaTaskManager : MonoBehaviour {
 			}
 
 			// 结束执行
-			if (task.Coroutine.State == CoroutineState.Dead) {
-				continue;
-			}
-
+			if (task.Coroutine.State == CoroutineState.Dead) continue;
+			
 			// 超过执行次数的协程暂停
 			if (result.Type == DataType.YieldRequest) {
 				Plugin.Logger.LogError($"[沙箱控制] 脚本 {task.DebugName} 指令超限或疑似死循环");

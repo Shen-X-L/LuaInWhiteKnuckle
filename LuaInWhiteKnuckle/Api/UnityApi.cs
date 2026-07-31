@@ -314,7 +314,6 @@ public class TransformData {
 
 }
 
-
 [LuaData(typeof(RaycastHit))]
 [MoonSharpUserData]
 public sealed class RaycastHitData {
@@ -451,4 +450,5 @@ public class RandomApi {
 	}
 
 	#endregion
+
 }

@@ -17,6 +17,7 @@ public class WorldApi {
 		WorldLoader.GetClosestLevelToPosition(position).GetLevel();
 	// 玩家所在关卡
 	public M_Level GetCurrentLevel()=> WorldLoader.instance.GetCurrentBranch().currentLevel.GetLevel();
+	public bool isLoaded => WorldLoader.isLoaded;
 }
 	
 

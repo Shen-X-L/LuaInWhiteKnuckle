@@ -9,19 +9,18 @@ namespace LuaInWhiteKnuckle.Api;
 [LuaApi("Other")]
 [MoonSharpUserData]
 public class OtherApi {
-	private const int Z = 0;
 
 	public void ExecuteCommand(string command) {
 		CommandConsole.instance?.ExecuteCommand(command, false);
 	}
 
-	public Transform SpawnObject(string prefabName, Vector3 pos, Quaternion rot) {
+	public GameObject SpawnObject(string prefabName, Vector3 pos, Quaternion rot) {
 		GameObject prefabObject = CL_AssetManager.GetAssetGameObject(prefabName);
-		if (prefabObject != null) return UnityEngine.Object.Instantiate(prefabObject, pos, rot).transform;
-		return null;
+		if (prefabObject == null) return null; 
+		return UnityEngine.Object.Instantiate(prefabObject, pos, rot);
 	}
 
-	public Transform SpawnEntity(string prefabName, Vector3 pos, Vector3 forward) {
+	public GameObject SpawnEntity(string prefabName, Vector3 pos, Vector3 forward) {
 		// 获取预制体
 		GameObject prefab = CL_AssetManager.GetAssetGameObject(prefabName);
 		// 是否存在
@@ -42,15 +41,16 @@ public class OtherApi {
 					newEntity.transform.position += offset;
 				}
 			}
-			return newEntity.transform;
+			return newEntity.gameObject;
 		}
 		return null;
 	}
 
-	public Transform SpawnEntity(string prefabName, Vector3 pos, Quaternion rot) {
+	public GameObject SpawnEntity(string prefabName, Vector3 pos, Quaternion rot) {
 		GameObject prefab = CL_AssetManager.GetAssetGameObject(prefabName);
 		if (prefab == null) return null;
 		if (!prefab.TryGetComponent<GameEntity>(out var gameEntity)) return null;
-		return UnityEngine.Object.Instantiate(prefab, pos, rot).transform;
+		return UnityEngine.Object.Instantiate(prefab, pos, rot);
 	}
+
 }

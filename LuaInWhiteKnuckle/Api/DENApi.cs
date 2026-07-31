@@ -71,6 +71,7 @@ public class MASSApi {
 		set => Patch_DEN_DeathFloor._rubberbandActiveField(_mass) = value;
 	}
 }
+
 [HarmonyPatch(typeof(DEN_DeathFloor))]
 public static class Patch_DEN_DeathFloor {
 	public static readonly AccessTools.FieldRef<DEN_DeathFloor, bool> _canKillField =

@@ -120,7 +120,7 @@ public static class PluginRegistry {
 			// 使用 Index 而不是 MetaIndex 来获取 __new
 			DynValue newMethod = staticProxy.UserData.Descriptor.Index(
 				ctx.OwnerScript, staticProxy.UserData.Object,
-				DynValue.NewString("__new"), false);
+				DynValue.NewString("__new"), true);
 			// args.GetArray() 包含: [0]=表本身, [1]=第一个参数, [2]=第二个参数...
 			var ctorArgs = new List<DynValue>();
 			for (int i = 1; i < args.Count; i++) {

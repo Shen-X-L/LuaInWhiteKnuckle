@@ -27,12 +27,19 @@ public class ItemApi {
 
 		// 双重检测获取 Item_Object 组件
 		Item_Object itemObject = null;
-		// 优先使用专用的 Item_Object 查找机制
-		Item_Object itemPrefab = CL_AssetManager.GetItemObjectPrefab(prefabName);
-		if (itemPrefab == null) {
+		try {
+			itemObject = CL_AssetManager.GetItemObjectPrefab(prefabName);
+		} catch (Exception e) {
+			Plugin.LogError(e.ToString());
+		}
+		if (itemObject == null) {
 			// 备用：从通用 GameObject 中获取组件
-			GameObject go = CL_AssetManager.GetAssetGameObject(prefabName);
-			itemPrefab = go?.GetComponent<Item_Object>();
+			try {
+				GameObject go = CL_AssetManager.GetAssetGameObject(prefabName);
+				itemObject = go?.GetComponent<Item_Object>();
+			} catch (Exception e) {
+				Plugin.LogError(e.ToString());
+			}
 		}
 		if (itemObject == null || itemObject.itemData == null) {
 			Plugin.LogError($"[LuaInWK] ItemApi: Item_Object or itemData not found for prefab '{prefabName}'");
@@ -49,12 +56,26 @@ public class ItemApi {
 	/// <param name="prefabName"></param>
 	/// <returns></returns>
 	public bool isItemExist(string prefabName) {
+		Plugin.LogTest("AA");
 		if (string.IsNullOrEmpty(prefabName)) return false;
-		Item_Object itemPrefab1 = CL_AssetManager.GetItemObjectPrefab(prefabName);
+		Item_Object itemPrefab1 = null;
+		try {
+			itemPrefab1 = CL_AssetManager.GetItemObjectPrefab(prefabName);
+		} catch (Exception e) {
+			Plugin.LogError(e.ToString());
+		}
 		var item1 = itemPrefab1?.itemData;
 		if (item1 != null) return true;
-		GameObject itemPrefab2 = CL_AssetManager.GetAssetGameObject(prefabName);
-		var item2 = itemPrefab2?.GetComponent<Item_Object>()?.itemData; 
+		Plugin.LogTest("AB");
+		GameObject itemPrefab2 = null;
+		try {
+			itemPrefab2 = CL_AssetManager.GetAssetGameObject(prefabName);
+		} catch (Exception e) {
+			Plugin.LogError(e.ToString());
+		}
+		Plugin.LogTest("AC");
+		var item2 = itemPrefab2?.GetComponent<Item_Object>()?.itemData;
+		Plugin.LogTest("AD");
 		return item2 != null;
 	}
 }

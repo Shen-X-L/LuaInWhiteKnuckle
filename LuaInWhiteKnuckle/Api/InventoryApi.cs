@@ -40,12 +40,21 @@ public class InventoryApi {
 		if (string.IsNullOrEmpty(prefabName)) return null;
 
 		// 优先检测 GetItemObjectPrefab
-		Item_Object itemPrefab1 = CL_AssetManager.GetItemObjectPrefab(prefabName);
-		if (itemPrefab1 != null) return itemPrefab1;
+		try {
+			Item_Object itemPrefab1 = CL_AssetManager.GetItemObjectPrefab(prefabName);
+			if (itemPrefab1 != null) return itemPrefab1;
+		} catch (Exception e) {
+			Plugin.LogError(e.ToString());
+		}
 
 		// 备用检测 GetAssetGameObject
-		GameObject itemPrefab2 = CL_AssetManager.GetAssetGameObject(prefabName);
-		return itemPrefab2?.GetComponent<Item_Object>();
+		try {
+			GameObject itemPrefab2 = CL_AssetManager.GetAssetGameObject(prefabName);
+			return itemPrefab2?.GetComponent<Item_Object>();
+		} catch (Exception e) {
+			Plugin.LogError(e.ToString());
+		}
+		return null;
 	}
 
 	#region[背包物品API]
@@ -216,7 +225,7 @@ public class InventoryApi {
 	/// <summary>
 	/// 获取手中物品
 	/// </summary>
-	public Item GetHandItem(int index) =>_inventory.itemHands[index].currentItem;
+	public Item GetHandItem(int index) => _inventory.itemHands[index].currentItem;
 
 	/// <summary>
 	/// 添加物品到手中
@@ -586,7 +595,7 @@ public class HandItemMonitor : IWatcher {
 		_currentItemsPrefab[1] = _currentItems[1]?.prefabName ?? "None";
 
 		// 对比
-		if (_currentItems[0] != _lastItems[0]|| _currentItemsPrefab[0]!= _lastItemsPrefab[0]) {
+		if (_currentItems[0] != _lastItems[0] || _currentItemsPrefab[0] != _lastItemsPrefab[0]) {
 			ModEventBus.TriggerEvent("OnHandItemChange", 0, _lastItems[0], _currentItems[0]);
 		}
 		if (_currentItems[1] != _lastItems[1] || _currentItemsPrefab[1] != _lastItemsPrefab[1]) {
@@ -752,7 +761,7 @@ public class Patch_Inventory {
 
 	[HarmonyPatch(nameof(Inventory.DropItemFromHand))]
 	[HarmonyPostfix]
-	public static void Patch_DropItemFromHand(bool __result) { 
+	public static void Patch_DropItemFromHand(bool __result) {
 		if (__result) GameWatcherManager.Get<HandItemMonitor>()?.Tick();
 	}
 

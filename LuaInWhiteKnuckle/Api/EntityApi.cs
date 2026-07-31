@@ -24,16 +24,19 @@ public class GameEntityData {
 	[MoonSharpHidden]
 	public GameEntity Raw => _gameEntity;
 
+	// 转换为实体
+	public static GameEntity Get(Transform transform) => transform.GetComponent<GameEntity>();
+
 	// 获取全部实体
 	public static List<GameEntity> GetAllGameEntity() => GameEntity.entities;
 
 	// 对象类型: "entity" (实体)
-	public string objectType {
+	public string type {
 		get => _gameEntity?.objectType;
 		set => _gameEntity?.objectType = value;
 	}
 	// 实体预制体 ID: "entity"
-	public string entityPrefabID { get => _gameEntity?.entityPrefabID; }
+	public string prefab { get => _gameEntity?.entityPrefabID; }
 	// 对象名称
 	public string name {
 		get => _gameEntity?.name;
@@ -66,10 +69,17 @@ public class GameEntityData {
 	public bool dead { get => _gameEntity?.dead ?? true; }
 	// 实际类型
 	public string typeName { get => _gameEntity?.GetType().Name; }
+	// 是否为null
+	public bool isNil => _gameEntity == null;
 	// 造成伤害
 	public void Damage(Damageable.DamageInfo info) => _gameEntity?.Damage(info);
 	// 击杀实体
 	public void Kill(string type)=>_gameEntity?.Kill(type);
+	// 施加力
+	public void AddForce(Vector3 v, string source = "") => _gameEntity?.AddForce(v, source);
+	// 施加力
+	public void AddForce(float x, float y, float z, string source = "") => _gameEntity?.AddForce(new Vector3(x, y, z), source);
+
 }
 
 [LuaData(typeof(DamageInfo))]
